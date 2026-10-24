@@ -5,6 +5,7 @@ import {
   getCloudDashboardData,
   getAllAttendance,
   getAllProfiles,
+  logOutUser,
   subscribeToBroadcast,
   subscribeToCloudChanges,
   getInitials,
