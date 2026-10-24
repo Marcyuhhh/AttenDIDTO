@@ -90,7 +90,6 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     setErrorMessage('');
-    sound.playWarning();
     if (onDeleteAccount) {
       try {
         await onDeleteAccount();
