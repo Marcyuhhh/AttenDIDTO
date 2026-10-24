@@ -53,15 +53,69 @@ App runs locally at: `http://localhost:5173/`
 
 ---
 
-## 🗄️ Supabase Setup (Optional for Live Production)
+## Production Setup: Supabase, Admin Review, and Vercel
 
-The application works out-of-the-box with real-time local storage and cross-tab synchronization. To connect to your live Supabase cloud database:
+The production workflow uses Supabase Auth and Postgres. New event requests are pending until an administrator approves the submitted payment reference. The browser never receives a service-role key.
 
-1. Create a Supabase project at [https://supabase.com](https://supabase.com).
-2. Open the **SQL Editor** in your Supabase dashboard and paste the contents of [`supabase_schema.sql`](./supabase_schema.sql).
-3. Create a `.env` file in the project root:
+### 1. Create the Supabase project
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. In **Project Settings → API**, copy the project URL and the publishable/anon client key.
+3. The GitHub Supabase workflow applies [`supabase/migrations`](./supabase/migrations) in order. On a fresh project it creates the base schema and then the admin workflow schema.
+4. In **Authentication → URL Configuration**, add the local and deployed app URLs to the allowed redirect URLs. Enable email confirmation for user accounts.
+5. In **Authentication → Providers → Email**, ensure password sign-in is enabled.
+
+If the original [`supabase_schema.sql`](./supabase_schema.sql) was already applied manually, first mark the baseline migration as applied so the automated workflow doesn't replay its non-idempotent policy setup:
+
+```powershell
+supabase migration repair --status applied 202610230001 --project-ref YOUR_PROJECT_REF
+```
+
+### 2. Provision the first admin
+
+1. Create the administrator account in **Authentication → Users → Add user** with the admin's email and a strong unique password. Do not make an admin account through public sign-up.
+2. Copy that user's UUID from the Auth users table.
+3. In SQL Editor, run the following with the actual UUID:
+
+   ```sql
+   update public.profiles
+   set role = 'admin'
+   where id = 'ADMIN_AUTH_USER_UUID';
+   ```
+
+The admin dashboard role is read from the protected profile row. Never expose a service-role key or allow users to edit their own role.
+
+### 3. Configure payment notification email
+
+1. Verify a sending domain in [Resend](https://resend.com) and create an API key.
+2. Add the GitHub Actions secrets listed below. The approved Supabase workflow sets the Edge Function secrets and deploys the function.
+
+The dashboard inbox is backed by the database; email is a notification. Failed email delivery is shown in the app and does not undo a saved event request or review decision.
+
+### 4. Deploy to Vercel
+
+1. Push the project to GitHub and import it in Vercel. Add these environment variables in **Vercel → Project → Settings → Environment Variables** for Production:
+
    ```env
    VITE_SUPABASE_URL=https://your-project-id.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   VITE_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
    ```
-4. Restart the Vite dev server (`npm run dev`).
+
+2. Select **Vite**, use `npm run build` as the build command and `dist` as the output directory.
+3. Add the GitHub Actions secrets below. Pushes to `main` then run the frontend deployment workflow.
+4. Add the resulting Vercel URL to Supabase's allowed redirect URLs and set `APP_ORIGIN` to that exact URL in GitHub Actions secrets.
+5. Test with a normal account: submit an event and payment reference, confirm it appears pending and cannot open scanning, review it as the admin, then confirm approval enables scanning and cancellation removes the event from My Events.
+
+### 5. GitHub Actions setup
+
+Create these repository secrets under **GitHub → Settings → Secrets and variables → Actions**:
+
+- `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+- `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`
+- `RESEND_API_KEY`, `ADMIN_EMAIL`, `NOTIFICATION_FROM_EMAIL`, `APP_ORIGIN`
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Vercel project environment variables; the workflow pulls them from Vercel during its production build. The Vercel token/project identifiers can be obtained by linking the project with the Vercel CLI and checking `.vercel/project.json` (do not commit that file).
+
+Create a GitHub environment named **production** and configure **Required reviewers**. The Supabase workflow is started manually from **Actions → Deploy Supabase production changes → Run workflow**, and requires the confirmation checkbox plus approval for that environment. It applies committed migrations and deploys the notification function. If Vercel's native Git integration also deploys production on pushes, disable one of the two deployment paths to avoid duplicate deployments.
+
+The app intentionally fails closed in a production build without Supabase configuration. Local development without Supabase remains a demo using browser storage; it does not provide cross-device accounts, admin review, or production payment verification. Payment references are manually reviewed, not verified automatically against a payment provider.

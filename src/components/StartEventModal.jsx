@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, MapPin, Users, Clock, ShieldCheck, CheckCircle2, CreditCard, Sparkles, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { saveEvent } from '../supabaseClient';
+import { submitEventRequest } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
 export default function StartEventModal({ currentUser, onClose, onEventCreated }) {
@@ -22,9 +22,10 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState('GCash'); // 'GCash' | 'PayMaya' | 'Card'
-  const [accountNumber, setAccountNumber] = useState('0917-882-9410');
-  const [otpCode, setOtpCode] = useState('8492');
+  const [paymentReference, setPaymentReference] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [notificationWarning, setNotificationWarning] = useState('');
   const [createdEvent, setCreatedEvent] = useState(null);
 
   const handleDetailsSubmit = (e) => {
@@ -36,26 +37,24 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
     setStep('payment');
   };
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
+    if (!paymentReference.trim()) {
+      setErrorMessage('Enter the payment transfer reference to submit this event for review.');
+      return;
+    }
     setIsProcessing(true);
-    setTimeout(() => {
-      const refNumber = `${paymentMethod.toUpperCase()}-REF-${Math.floor(100000 + Math.random() * 900000)}`;
-      
-      const newEvent = saveEvent({
+    setErrorMessage('');
+    try {
+      const newEvent = await submitEventRequest({
         ...formData,
-        host_user_id: currentUser.id,
         target_attendees: Number(formData.target_attendees) || 100,
-        status: 'active',
-        payment_status: 'paid',
         payment_method: paymentMethod,
-        payment_reference: refNumber,
-        payment_amount: 49.00,
-      });
+      }, paymentReference.trim());
 
       setCreatedEvent(newEvent);
-      setIsProcessing(false);
+      setNotificationWarning(newEvent.notificationWarning || '');
       setStep('success');
-      sound.playPayment();
+      sound.playSuccess();
 
       try {
         confetti({
@@ -67,7 +66,11 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
       } catch {
         // ignore
       }
-    }, 1200);
+    } catch (error) {
+      setErrorMessage(error.message || 'The event request could not be submitted. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFinish = () => {
@@ -87,12 +90,12 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
             <h3 style={{ fontSize: '1.3rem', color: 'var(--color-primary)' }}>
               {step === 'details' && 'Start a New Campus Event'}
               {step === 'payment' && 'Event Verification & Payment'}
-              {step === 'success' && 'Event Published Successfully!'}
+              {step === 'success' && 'Payment Submitted for Review'}
             </h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
               {step === 'details' && 'Set up your event details and target attendees'}
               {step === 'payment' && 'Technopreneurship student-friendly event fee'}
-              {step === 'success' && 'Your live attendance console is now ready for scanning'}
+              {step === 'success' && 'Scanning will be enabled after admin approval'}
             </p>
           </div>
           <button onClick={onClose} className="btn-ghost" style={{ padding: '6px', borderRadius: '50%' }}>
@@ -239,7 +242,7 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
                   Event Access Fee: ₱49.00
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#166534' }}>
-                  Includes real-time multi-device scanning & print-ready reports
+                  Scanning is enabled after an administrator confirms your payment
                 </div>
               </div>
               <CheckCircle2 size={26} color="#16a34a" />
@@ -274,30 +277,21 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
               ))}
             </div>
 
-            {/* Simulated Account Prompt */}
+            {/* Payment reference submitted for manual review */}
             <div className="form-group">
-              <label className="form-label">{paymentMethod} Mobile Number / Account</label>
+              <label className="form-label">Payment Transfer Reference *</label>
               <input
                 type="text"
                 className="form-input"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Enter the reference from your payment receipt"
+                maxLength={120}
+                required
               />
             </div>
-
-            <div className="form-group">
-              <label className="form-label">Simulated 4-Digit Security Code (OTP)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                style={{ letterSpacing: '0.25em', fontWeight: 700, fontSize: '1.1rem' }}
-              />
-              <div style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                * Ready-to-demo mode: Click button below to complete simulated payment.
-              </div>
-            </div>
+            {errorMessage && <div role="alert" style={{ color: '#b91c1c', fontSize: '0.82rem', marginBottom: '0.75rem' }}>{errorMessage}</div>}
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>Your event stays pending until an administrator verifies the payment reference.</div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setStep('details')}>
@@ -310,13 +304,13 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
                 disabled={isProcessing}
                 style={{ minWidth: '180px' }}
               >
-                {isProcessing ? 'Verifying Payment...' : `Pay ₱49.00 via ${paymentMethod}`}
+                {isProcessing ? 'Submitting...' : 'Submit for Review'}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Payment Success & Ready */}
+        {/* STEP 3: Payment Submitted */}
         {step === 'success' && createdEvent && (
           <div style={{ padding: '2rem 1.5rem', textAlign: 'center' }}>
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
@@ -327,12 +321,17 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
               {createdEvent.title}
             </h3>
             <p style={{ fontSize: '0.88rem', color: 'var(--color-text-muted)', marginBottom: '1.25rem' }}>
-              Payment confirmed via {createdEvent.payment_method}. Your event is live and ready for attendance scanning.
+              Your payment reference was submitted. The event remains pending until an administrator reviews it.
             </p>
+            {notificationWarning && <p role="alert" style={{ color: '#b45309', fontSize: '0.82rem', marginBottom: '0.75rem' }}>Your request was saved, but the admin email could not be sent. The dashboard inbox still contains the request.</p>}
 
             <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', maxWidth: '380px', margin: '0 auto 1.5rem', textAlign: 'left', fontSize: '0.84rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Reference:</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>Event ID:</span>
+                <strong style={{ color: 'var(--color-primary)' }}>{createdEvent.event_code || createdEvent.id}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Payment reference:</span>
                 <strong style={{ color: 'var(--color-primary)' }}>{createdEvent.payment_reference}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
@@ -340,13 +339,13 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
                 <strong>{createdEvent.target_attendees} students</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Amount Paid:</span>
-                <strong style={{ color: '#16a34a' }}>₱49.00 (PAID)</strong>
+                <span style={{ color: 'var(--color-text-muted)' }}>Status:</span>
+                <strong style={{ color: '#b45309' }}>PENDING REVIEW</strong>
               </div>
             </div>
 
-            <button className="btn btn-emerald" onClick={handleFinish} style={{ width: '100%', maxWidth: '380px' }}>
-              Open Event Console & Scanner
+            <button className="btn btn-secondary" onClick={handleFinish} style={{ width: '100%', maxWidth: '380px' }}>
+              Return to My Events
             </button>
           </div>
         )}

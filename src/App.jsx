@@ -1,24 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense, lazy } from 'react';
 import { 
   initLocalData, 
-  getLocalCurrentUser, 
-  getAllEvents, 
-  getAllAttendance, 
-  subscribeToBroadcast, 
-  logOutUser,
+  getAuthenticatedProfile,
+  getCloudDashboardData,
+  getAllAttendance,
+  getAllProfiles,
+  subscribeToBroadcast,
+  subscribeToCloudChanges,
   getInitials,
-  deleteUserAccount
 } from './supabaseClient';
-import LandingPage from './components/LandingPage';
-import AuthScreen from './components/AuthScreen';
-import PersonalQRPass from './components/PersonalQRPass';
-import EventConsole from './components/EventConsole';
-import StartEventModal from './components/StartEventModal';
-import ParticipantScannerModal from './components/ParticipantScannerModal';
-import PrintReportModal from './components/PrintReportModal';
-import EditProfileModal from './components/EditProfileModal';
-import AttendanceHistory from './components/AttendanceHistory';
-import ProfileView from './components/ProfileView';
+
+const LandingPage = lazy(() => import('./components/LandingPage'));
+const AuthScreen = lazy(() => import('./components/AuthScreen'));
+const PersonalQRPass = lazy(() => import('./components/PersonalQRPass'));
+const EventConsole = lazy(() => import('./components/EventConsole'));
+const StartEventModal = lazy(() => import('./components/StartEventModal'));
+const ParticipantScannerModal = lazy(() => import('./components/ParticipantScannerModal'));
+const PrintReportModal = lazy(() => import('./components/PrintReportModal'));
+const EditProfileModal = lazy(() => import('./components/EditProfileModal'));
+const AttendanceHistory = lazy(() => import('./components/AttendanceHistory'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import { 
   QrCode, 
   Home, 
@@ -33,6 +34,12 @@ import {
   UserCog
 } from 'lucide-react';
 
+const loadingFallback = (
+  <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-bg-base)' }}>
+    <div style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Loading...</div>
+  </div>
+);
+
 export default function App() {
   // View state: 'landing' | 'auth' | 'dashboard'
   const [view, setView] = useState('landing');
@@ -46,6 +53,10 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [historyEvents, setHistoryEvents] = useState([]);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const currentUserIdRef = useRef(null);
 
   // Modals state
   const [isStartEventOpen, setIsStartEventOpen] = useState(false);
@@ -55,19 +66,39 @@ export default function App() {
 
   // Initialize data on mount
   useEffect(() => {
-    initLocalData();
-    const user = getLocalCurrentUser();
-    const evts = getAllEvents();
-    const atts = getAllAttendance();
-
-    setCurrentUser(user);
-    setEvents(evts);
-    setAttendanceRecords(atts);
-
-    // If user is already logged in, go straight to dashboard
-    if (user) {
-      setView('dashboard');
-    }
+    let mounted = true;
+    const initialize = async () => {
+      if (!import.meta.env.PROD) initLocalData();
+      try {
+        const user = await getAuthenticatedProfile();
+        if (!mounted) return;
+        setCurrentUser(user);
+        currentUserIdRef.current = user?.id ?? null;
+        if (user) {
+          const { events: cloudEvents, attendance, profiles: cloudProfiles, historyEvents: cloudHistoryEvents } = await getCloudDashboardData(user);
+          if (!mounted) return;
+          setEvents(cloudEvents);
+          setAttendanceRecords(attendance);
+          setProfiles(cloudProfiles);
+          setHistoryEvents(cloudHistoryEvents);
+          setView('dashboard');
+        } else {
+          setEvents(getAllEvents());
+          setAttendanceRecords(getAllAttendance());
+          setProfiles(getAllProfiles());
+          setHistoryEvents(getAllEvents());
+        }
+      } catch (error) {
+        console.error('Unable to initialize account data:', error);
+        if (mounted) {
+          setCurrentUser(null);
+          setView('auth');
+        }
+      } finally {
+        if (mounted) setIsInitializing(false);
+      }
+    };
+    initialize();
 
     // Subscribe to multi-device real-time broadcast bus
     const unsubscribe = subscribeToBroadcast((data) => {
@@ -79,33 +110,70 @@ export default function App() {
         setCurrentUser(data.payload);
       }
     });
+    const unsubscribeCloud = subscribeToCloudChanges((data) => {
+      if (data.type === 'ATTENDANCE_RECORDED') {
+        setAttendanceRecords((previous) => [data.payload, ...previous.filter((record) => record.id !== data.payload.id)]);
+      } else if (data.type === 'EVENT_UPDATED' && data.payload?.id) {
+        setEvents((previous) => {
+          if (data.payload.host_user_id !== currentUserIdRef.current) return previous;
+          return [data.payload, ...previous.filter((event) => event.id !== data.payload.id)];
+        });
+      }
+    });
 
     return () => {
+      mounted = false;
       unsubscribe();
+      unsubscribeCloud();
     };
   }, []);
 
-  const handleEventCreated = (newEvent) => {
+  const handleEventCreated = useCallback((newEvent) => {
     setEvents((prev) => [newEvent, ...prev]);
-    setSelectedEventId(newEvent.id);
-  };
+    setSelectedEventId(null);
+  }, []);
 
-  const handleAttendanceRecorded = (newRecord) => {
-    setAttendanceRecords((prev) => [newRecord, ...prev]);
-  };
+  const handleScanRecorded = useCallback((newRecord, participant) => {
+    setAttendanceRecords((previous) => [newRecord, ...previous.filter((record) => record.id !== newRecord.id)]);
+    if (participant) {
+      setProfiles((previous) => [participant, ...previous.filter((profile) => profile.id !== participant.id)]);
+    }
+  }, []);
 
-  const handleLogOut = () => {
+  const handleLogOut = useCallback(() => {
     logOutUser();
     setCurrentUser(null);
     setActiveTab('home');
     setSelectedEventId(null);
     setView('landing');
-  };
+  }, []);
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const selectedEvent = useMemo(
+    () => events.find((event) => event.id === selectedEventId) ?? null,
+    [events, selectedEventId]
+  );
+
+  const getEventAttendanceCount = useCallback((eventId) => {
+    return attendanceRecords.filter((record) => record.event_id === eventId).length;
+  }, [attendanceRecords]);
+
+  const userFirstName = useMemo(
+    () => currentUser?.full_name?.split(' ')[0] || '',
+    [currentUser]
+  );
+
+  const sidebarTabs = useMemo(
+    () => [
+      { id: 'home', label: 'Home', icon: <Home size={20} /> },
+      { id: 'events', label: 'My Events', icon: <CalendarDays size={20} /> },
+      { id: 'history', label: 'History', icon: <Clock size={20} /> },
+    ],
+    []
+  );
 
   // ─── VIEW 1: Landing Page ───
   if (view === 'landing') {
+    if (isInitializing) return loadingFallback;
     return (
       <LandingPage 
         onGoToAuth={() => {
@@ -118,6 +186,7 @@ export default function App() {
 
   // ─── VIEW 2: Auth Screen ───
   if (view === 'auth' || !currentUser) {
+    if (isInitializing) return loadingFallback;
     return (
       <AuthScreen 
         onGoBack={() => {
@@ -126,28 +195,34 @@ export default function App() {
         }}
         onAuthSuccess={(user) => {
           setCurrentUser(user);
-          setEvents(getAllEvents());
-          setAttendanceRecords(getAllAttendance());
-          setView('dashboard');
+          currentUserIdRef.current = user.id;
+          getCloudDashboardData(user).then(({ events: cloudEvents, attendance, profiles: cloudProfiles, historyEvents: cloudHistoryEvents }) => {
+            setEvents(cloudEvents);
+            setAttendanceRecords(attendance);
+            setProfiles(cloudProfiles);
+            setHistoryEvents(cloudHistoryEvents);
+            setView('dashboard');
+          }).catch((error) => {
+            console.error('Unable to load account data:', error);
+            setCurrentUser(null);
+            setView('auth');
+          });
         }} 
       />
     );
   }
 
-  // Helper: count attendance for a given event
-  const getEventAttendanceCount = (eventId) => {
-    return attendanceRecords.filter((r) => r.event_id === eventId).length;
-  };
-
-  // ─── Sidebar Tab Items ───
-  const sidebarTabs = [
-    { id: 'home',    label: 'Home',      icon: <Home size={20} /> },
-    { id: 'events',  label: 'My Events',  icon: <CalendarDays size={20} /> },
-    { id: 'history', label: 'History',    icon: <Clock size={20} /> },
-  ];
+  if (currentUser.role === 'admin') {
+    return (
+      <Suspense fallback={loadingFallback}>
+        <AdminDashboard currentUser={currentUser} onLogOut={handleLogOut} />
+      </Suspense>
+    );
+  }
 
   // ─── VIEW 3: Authenticated Dashboard with Sidebar ───
   return (
+    <Suspense fallback={loadingFallback}>
     <div className="dashboard-shell">
 
       {/* ─── LEFT SIDEBAR ─── */}
@@ -231,7 +306,7 @@ export default function App() {
                 <span>Cagayan de Oro Campus Network</span>
               </div>
               <h1 style={{ fontSize: '1.75rem', color: 'var(--color-text-main)' }}>
-                Welcome back, <span style={{ color: 'var(--color-primary)' }}>{currentUser.full_name.split(' ')[0]}</span>!
+                Welcome back, <span style={{ color: 'var(--color-primary)' }}>{userFirstName}</span>!
               </h1>
               <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
                 {currentUser.school} • {currentUser.course} ({currentUser.year_level})
@@ -267,6 +342,7 @@ export default function App() {
                 <EventConsole
                   event={selectedEvent}
                   attendanceRecords={attendanceRecords}
+                  profiles={profiles}
                   onOpenScanner={() => setIsScannerOpen(true)}
                   onOpenReport={() => setIsReportOpen(true)}
                 />
@@ -305,20 +381,22 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="event-cards-grid">
-                    {events.map((evt) => {
+                    {events.filter((evt) => evt.status !== 'canceled').map((evt) => {
                       const attendCount = getEventAttendanceCount(evt.id);
                       const progress = evt.target_attendees > 0 ? Math.round((attendCount / evt.target_attendees) * 100) : 0;
                       return (
                         <button
                           key={evt.id}
                           className="event-card"
-                          onClick={() => setSelectedEventId(evt.id)}
+                          onClick={() => evt.status === 'active' && setSelectedEventId(evt.id)}
+                          disabled={evt.status !== 'active'}
+                          aria-label={evt.status === 'active' ? `Open ${evt.title}` : `${evt.title} pending payment review`}
                         >
                           <div className="event-card-top">
                             <div className="event-card-icon">
                               <CalendarDays size={20} />
                             </div>
-                            <ChevronRight size={18} className="event-card-chevron" />
+                            {evt.status === 'active' ? <ChevronRight size={18} className="event-card-chevron" /> : <span style={{ color: '#b45309', fontSize: '0.75rem', fontWeight: 700 }}>PENDING</span>}
                           </div>
                           <h3 className="event-card-title">{evt.title}</h3>
                           <p className="event-card-meta">
@@ -356,6 +434,7 @@ export default function App() {
             <AttendanceHistory 
               currentUser={currentUser} 
               attendanceRecords={attendanceRecords} 
+              events={historyEvents}
             />
           </div>
         )}
@@ -375,8 +454,9 @@ export default function App() {
         <ParticipantScannerModal
           event={selectedEvent}
           currentUser={currentUser}
+          profiles={profiles}
           onClose={() => setIsScannerOpen(false)}
-          onAttendanceRecorded={handleAttendanceRecorded}
+          onAttendanceRecorded={handleScanRecorded}
         />
       )}
 
@@ -384,6 +464,7 @@ export default function App() {
         <PrintReportModal
           event={selectedEvent}
           attendanceRecords={attendanceRecords}
+          profiles={profiles}
           currentUser={currentUser}
           onClose={() => setIsReportOpen(false)}
         />
@@ -397,5 +478,6 @@ export default function App() {
         />
       )}
     </div>
+    </Suspense>
   );
 }

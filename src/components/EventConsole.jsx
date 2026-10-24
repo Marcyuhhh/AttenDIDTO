@@ -1,47 +1,58 @@
-import React, { useState } from 'react';
-import { Camera, Printer, Users, CheckCircle2, Search, Filter, Calendar, MapPin, Clock, Smartphone } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Camera, Printer, CheckCircle2, Search, Calendar, MapPin } from 'lucide-react';
 import { getAllProfiles, getInitials } from '../supabaseClient';
 
-export default function EventConsole({ event, attendanceRecords, onOpenScanner, onOpenReport }) {
+const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year'];
+
+function EventConsole({ event, attendanceRecords, profiles = [], onOpenScanner, onOpenReport }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedYear, setSelectedYear] = useState('ALL');
 
-  if (!event) return null;
+  const allProfiles = useMemo(() => profiles.length ? profiles : getAllProfiles(), [profiles]);
 
-  const allProfiles = getAllProfiles();
-
-  // Filter records for this event and map to student profile
-  const eventAttendance = attendanceRecords
-    .filter((r) => r.event_id === event.id)
-    .map((record) => {
-      const student = allProfiles.find((p) => p.id === record.participant_id) || {};
-      return {
-        ...record,
-        full_name: student.full_name || 'Registered Student',
-        school: student.school || 'Campus',
-        department: student.department || 'N/A',
-        course: student.course || 'N/A',
-        year_level: student.year_level || 'N/A',
-        profile_picture_url: student.profile_picture_url,
-      };
-    });
+  const eventAttendance = useMemo(
+    () =>
+      attendanceRecords
+        .filter((record) => record.event_id === event.id)
+        .map((record) => {
+          const student = allProfiles.find((profile) => profile.id === record.participant_id) || {};
+          return {
+            ...record,
+            full_name: student.full_name || 'Registered Student',
+            school: student.school || 'Campus',
+            department: student.department || 'N/A',
+            course: student.course || 'N/A',
+            year_level: student.year_level || 'N/A',
+            profile_picture_url: student.profile_picture_url,
+          };
+        }),
+    [allProfiles, attendanceRecords, event.id]
+  );
 
   const targetCount = event.target_attendees || 100;
   const currentCount = eventAttendance.length;
   const progressPercent = Math.min(100, Math.round((currentCount / targetCount) * 100));
   const remainingCount = Math.max(0, targetCount - currentCount);
 
-  // Departments for filter
-  const departments = Array.from(new Set(eventAttendance.map((r) => r.department).filter(Boolean)));
+  const departments = useMemo(
+    () => Array.from(new Set(eventAttendance.map((record) => record.department).filter(Boolean))),
+    [eventAttendance]
+  );
 
-  const filteredAttendance = eventAttendance.filter((r) => {
-    const matchesSearch = r.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          r.course.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept = selectedDept === 'ALL' || r.department === selectedDept;
-    const matchesYear = selectedYear === 'ALL' || r.year_level === selectedYear;
-    return matchesSearch && matchesDept && matchesYear;
-  });
+  const filteredAttendance = useMemo(
+    () =>
+      eventAttendance.filter((record) => {
+        const matchesSearch = record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.course.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesDept = selectedDept === 'ALL' || record.department === selectedDept;
+        const matchesYear = selectedYear === 'ALL' || record.year_level === selectedYear;
+        return matchesSearch && matchesDept && matchesYear;
+      }),
+    [eventAttendance, searchTerm, selectedDept, selectedYear]
+  );
+
+  if (!event) return null;
 
   return (
     <div style={{ width: '100%' }}>
@@ -167,8 +178,8 @@ export default function EventConsole({ event, attendanceRecords, onOpenScanner, 
             style={{ fontSize: '0.86rem', width: 'auto' }}
           >
             <option value="ALL">All Year Levels</option>
-            {['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year'].map((y) => (
-              <option key={y} value={y}>{y}</option>
+            {YEAR_LEVELS.map((year) => (
+              <option key={year} value={year}>{year}</option>
             ))}
           </select>
         </div>
@@ -247,3 +258,5 @@ export default function EventConsole({ event, attendanceRecords, onOpenScanner, 
     </div>
   );
 }
+
+export default EventConsole;

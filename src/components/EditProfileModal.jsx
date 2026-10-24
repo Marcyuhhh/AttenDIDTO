@@ -37,7 +37,7 @@ export default function EditProfileModal({ currentUser, onClose, onSave }) {
 
   if (!currentUser) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -59,21 +59,24 @@ export default function EditProfileModal({ currentUser, onClose, onSave }) {
 
     setIsSubmitting(true);
 
-    const updated = updateProfile(currentUser.id, {
-      full_name: fullName.trim(),
-      school: finalSchool,
-      department: department.trim() || 'General Department',
-      course: course.trim(),
-      year_level: yearLevel,
-    });
-
-    setIsSubmitting(false);
-
-    if (updated) {
-      if (onSave) onSave(updated);
-      onClose();
-    } else {
-      setErrorMsg('Failed to update profile. Please try again.');
+    try {
+      const updated = await updateProfile(currentUser.id, {
+        full_name: fullName.trim(),
+        school: finalSchool,
+        department: department.trim() || 'General Department',
+        course: course.trim(),
+        year_level: yearLevel,
+      });
+      if (updated) {
+        if (onSave) onSave(updated);
+        onClose();
+      } else {
+        setErrorMsg('Failed to update profile. Please try again.');
+      }
+    } catch (error) {
+      setErrorMsg(error.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

@@ -1,38 +1,47 @@
-import React, { useState } from 'react';
-import { X, Printer, Download, Filter, CheckCircle2, ShieldCheck } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Printer, Download, Filter, CheckCircle2 } from 'lucide-react';
 import { getAllProfiles } from '../supabaseClient';
 
-export default function PrintReportModal({ event, attendanceRecords, currentUser, onClose }) {
+const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year'];
+
+function PrintReportModal({ event, attendanceRecords, currentUser, profiles = [], onClose }) {
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [yearFilter, setYearFilter] = useState('ALL');
 
-  const allProfiles = getAllProfiles();
+  const allProfiles = useMemo(() => profiles.length ? profiles : getAllProfiles(), [profiles]);
 
-  // Map attendance record to full student profile
-  const enrichedRecords = attendanceRecords
-    .filter((r) => r.event_id === event.id)
-    .map((record) => {
-      const student = allProfiles.find((p) => p.id === record.participant_id) || {};
-      return {
-        ...record,
-        full_name: student.full_name || 'Registered Attendee',
-        school: student.school || 'Campus',
-        department: student.department || 'N/A',
-        course: student.course || 'N/A',
-        year_level: student.year_level || 'N/A',
-      };
-    });
+  const enrichedRecords = useMemo(
+    () =>
+      attendanceRecords
+        .filter((record) => record.event_id === event.id)
+        .map((record) => {
+          const student = allProfiles.find((profile) => profile.id === record.participant_id) || {};
+          return {
+            ...record,
+            full_name: student.full_name || 'Registered Attendee',
+            school: student.school || 'Campus',
+            department: student.department || 'N/A',
+            course: student.course || 'N/A',
+            year_level: student.year_level || 'N/A',
+          };
+        }),
+    [allProfiles, attendanceRecords, event.id]
+  );
 
-  // Extract unique departments & year levels for filter pills
-  const departments = Array.from(new Set(enrichedRecords.map((r) => r.department).filter(Boolean)));
-  const yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year'];
+  const departments = useMemo(
+    () => Array.from(new Set(enrichedRecords.map((record) => record.department).filter(Boolean))),
+    [enrichedRecords]
+  );
 
-  // Apply filters
-  const filteredRecords = enrichedRecords.filter((r) => {
-    const matchesDept = deptFilter === 'ALL' || r.department === deptFilter;
-    const matchesYear = yearFilter === 'ALL' || r.year_level === yearFilter;
-    return matchesDept && matchesYear;
-  });
+  const filteredRecords = useMemo(
+    () =>
+      enrichedRecords.filter((record) => {
+        const matchesDept = deptFilter === 'ALL' || record.department === deptFilter;
+        const matchesYear = yearFilter === 'ALL' || record.year_level === yearFilter;
+        return matchesDept && matchesYear;
+      }),
+    [deptFilter, enrichedRecords, yearFilter]
+  );
 
   const targetCount = event.target_attendees || 100;
   const currentCount = enrichedRecords.length;
@@ -122,8 +131,8 @@ export default function PrintReportModal({ event, attendanceRecords, currentUser
             style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
           >
             <option value="ALL">All Year Levels</option>
-            {yearLevels.map((y) => (
-              <option key={y} value={y}>{y}</option>
+            {YEAR_LEVELS.map((year) => (
+              <option key={year} value={year}>{year}</option>
             ))}
           </select>
         </div>
@@ -244,3 +253,5 @@ export default function PrintReportModal({ event, attendanceRecords, currentUser
     </div>
   );
 }
+
+export default PrintReportModal;

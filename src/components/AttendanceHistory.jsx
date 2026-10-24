@@ -1,17 +1,14 @@
 import React from 'react';
 import { History, Calendar, Clock, MapPin, CheckCircle2, Award } from 'lucide-react';
-import { getAllEvents } from '../supabaseClient';
 
-export default function AttendanceHistory({ currentUser, attendanceRecords }) {
+export default function AttendanceHistory({ currentUser, attendanceRecords, events = [] }) {
   if (!currentUser) return null;
-
-  const allEvents = getAllEvents();
 
   // Find attendance records for current user
   const myAttendances = attendanceRecords
     .filter((r) => r.participant_id === currentUser.id)
     .map((record) => {
-      const event = allEvents.find((e) => e.id === record.event_id) || {};
+      const event = events.find((entry) => entry.id === record.event_id) || {};
       return {
         ...record,
         event_title: event.title || 'Campus Event',

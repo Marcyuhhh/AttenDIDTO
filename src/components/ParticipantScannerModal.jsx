@@ -1,26 +1,26 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { X, Camera, RefreshCw, CheckCircle, AlertTriangle, AlertOctagon, UserCheck, Shield } from 'lucide-react';
+import { X, Camera, CheckCircle, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { getAllProfiles, recordAttendance } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
-export default function ParticipantScannerModal({ event, currentUser, onClose, onAttendanceRecorded }) {
+function ParticipantScannerModal({ event, currentUser, profiles = [], onClose, onAttendanceRecorded }) {
   const [scanResult, setScanResult] = useState(null); // { type: 'success' | 'duplicate' | 'error', message, participant, time }
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const scannerRef = useRef(null);
   const isCooldownRef = useRef(false);
 
-  const allProfiles = getAllProfiles();
+  const allProfiles = useMemo(() => profiles.length ? profiles : getAllProfiles(), [profiles]);
 
-  // Process a decoded QR code string (e.g. "AID-PASS-8849201A")
-  const processQRCode = (decodedText) => {
+  const processQRCode = useCallback(async (decodedText) => {
     if (isCooldownRef.current) return;
     isCooldownRef.current = true;
 
-    const matchedParticipant = allProfiles.find(
-      (p) => p.qr_pass_code?.trim().toUpperCase() === decodedText?.trim().toUpperCase()
-    );
+    const isLocalDemo = !import.meta.env.PROD && !import.meta.env.VITE_SUPABASE_URL;
+    let matchedParticipant = isLocalDemo ? allProfiles.find(
+      (profile) => profile.qr_pass_code?.trim().toUpperCase() === decodedText?.trim().toUpperCase()
+    ) : { qr_pass_code: decodedText };
 
     if (!matchedParticipant) {
       sound.playError();
@@ -35,13 +35,19 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
       return;
     }
 
-    // Record attendance in centralized DB
-    const result = recordAttendance({
-      event_id: event.id,
-      participant_id: matchedParticipant.id,
-      scanned_by_user_id: currentUser.id,
-      scanner_device: 'Camera Scanner 1',
-    });
+    let result;
+    try {
+      result = await recordAttendance({
+        event_id: event.id,
+        participant_id: matchedParticipant.id,
+        participant_qr: decodedText,
+        scanned_by_user_id: currentUser.id,
+        scanner_device: 'Camera Scanner 1',
+      });
+      if (result.success && result.participant) matchedParticipant = result.participant;
+    } catch (error) {
+      result = { success: false, isDuplicate: false, message: error.message || 'Attendance could not be recorded.' };
+    }
 
     if (result.success) {
       sound.playSuccess();
@@ -51,6 +57,7 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
         participant: matchedParticipant,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       });
+
       if (onAttendanceRecorded) {
         onAttendanceRecorded(result.record, matchedParticipant);
       }
@@ -61,14 +68,16 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
         message: result.message,
         participant: matchedParticipant,
       });
+    } else {
+      sound.playError();
+      setScanResult({ type: 'error', message: result.message });
     }
 
-    // Cooldown before next scan
     setTimeout(() => {
       setScanResult(null);
       isCooldownRef.current = false;
     }, 2200);
-  };
+  }, [allProfiles, currentUser.id, event.id, onAttendanceRecorded]);
 
   // Start HTML5 Camera Scanner
   useEffect(() => {
@@ -114,7 +123,7 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
         });
       }
     };
-  }, []);
+  }, [processQRCode]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -222,8 +231,8 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
             )}
           </div>
 
-          {/* Quick Simulation Menu (Ideal for school defense and devices without webcams) */}
-          <div style={{ marginTop: '1.25rem', padding: '0.85rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+          {/* Quick Simulation Menu is available only in the local demo. */}
+          {isLocalDemo && <div style={{ marginTop: '1.25rem', padding: '0.85rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>
                 ⚡ Presentation Demo Scanner:
@@ -245,7 +254,7 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
             <button className="btn btn-primary" onClick={onClose} style={{ width: '100%' }}>
@@ -258,3 +267,5 @@ export default function ParticipantScannerModal({ event, currentUser, onClose, o
     </div>
   );
 }
+
+export default ParticipantScannerModal;

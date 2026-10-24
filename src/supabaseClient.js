@@ -5,6 +5,13 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const isLiveSupabase = Boolean(supabaseUrl && supabaseAnonKey);
+export const isProductionBackendUnavailable = import.meta.env.PROD && !isLiveSupabase;
+
+const requireProductionBackend = () => {
+  if (isProductionBackendUnavailable) {
+    throw new Error('This deployment is not configured with Supabase. Contact the administrator.');
+  }
+};
 
 export const supabase = isLiveSupabase 
   ? createClient(supabaseUrl, supabaseAnonKey) 
@@ -185,7 +192,230 @@ export const setLocalCurrentUser = (user) => {
 };
 
 export const logOutUser = () => {
+  if (isLiveSupabase) {
+    return supabase.auth.signOut();
+  }
   setLocalCurrentUser(null);
+};
+
+export const getAuthenticatedProfile = async () => {
+  if (!isLiveSupabase) {
+    if (isProductionBackendUnavailable) return null;
+    return getLocalCurrentUser();
+  }
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.user) return null;
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+  if (error) throw error;
+  return { ...profile, email: session.user.email };
+};
+
+export const getCloudDashboardData = async (profile) => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    const events = getAllEvents();
+    const attendance = getAllAttendance();
+    const historyEvents = events.filter((event) => attendance.some((record) => record.participant_id === profile.id && record.event_id === event.id));
+    return { events, attendance, profiles: getAllProfiles(), historyEvents };
+  }
+  const [{ data: events, error: eventsError }, { data: attendance, error: attendanceError }] = await Promise.all([
+    supabase.from('events').select('*').order('created_at', { ascending: false }),
+    supabase.from('attendance_records').select('*').order('time_in', { ascending: false }),
+  ]);
+  if (eventsError) throw eventsError;
+  if (attendanceError) throw attendanceError;
+  const hostEvents = (events ?? []).filter((event) => event.host_user_id === profile.id);
+  const historyEventIds = [...new Set((attendance ?? [])
+    .filter((record) => record.participant_id === profile.id)
+    .map((record) => record.event_id))];
+  let historyEvents = [];
+  if (historyEventIds.length) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id,title,organization_name,venue,event_date')
+      .in('id', historyEventIds);
+    if (error) throw error;
+    historyEvents = data ?? [];
+  }
+  const participantIds = [...new Set((attendance ?? []).map((record) => record.participant_id))];
+  let profiles = [];
+  if (participantIds.length) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,full_name,school,department,course,year_level,email')
+      .in('id', participantIds);
+    if (error) throw error;
+    profiles = data ?? [];
+  }
+  return { events: hostEvents, historyEvents, attendance: attendance ?? [], profiles };
+};
+
+export const subscribeToCloudChanges = (callback) => {
+  if (!isLiveSupabase) return () => {};
+  const channel = supabase
+    .channel('attendidto-dashboard-updates')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, (payload) => {
+      callback({ type: 'EVENT_UPDATED', payload: payload.new });
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_records' }, (payload) => {
+      callback({ type: 'ATTENDANCE_RECORDED', payload: payload.new });
+    })
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+};
+
+export const submitEventRequest = async (eventData, paymentReference) => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    const event = saveEvent({
+      ...eventData,
+      status: 'pending_payment',
+      payment_status: 'pending',
+      payment_reference: paymentReference,
+      payment_amount: 49,
+    });
+    return { ...event, event_code: event.event_code || `EVT-${event.id.slice(-8).toUpperCase()}` };
+  }
+  const { data, error } = await supabase.rpc('create_event_request', {
+    event_data: eventData,
+    submitted_payment_reference: paymentReference,
+  });
+  if (error) throw error;
+  const { error: notificationError } = await supabase.functions.invoke('event-payment-notification', {
+    body: { eventId: data.id, kind: 'submitted' },
+  });
+  return { ...data, notificationWarning: notificationError?.message };
+};
+
+export const getPendingEventRequests = async () => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    return getAllEvents().filter((event) => event.payment_status === 'pending');
+  }
+  const { data, error } = await supabase
+    .from('events')
+    .select('*, profiles!events_host_user_id_fkey(full_name,email,school)')
+    .eq('status', 'pending_payment')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+};
+
+export const reviewEventPayment = async (eventId, decision) => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    const events = getAllEvents();
+    const index = events.findIndex((event) => event.id === eventId);
+    if (index < 0) throw new Error('Event not found');
+    const approved = decision === 'approve';
+    events[index] = {
+      ...events[index],
+      status: approved ? 'active' : 'canceled',
+      payment_status: approved ? 'paid' : 'canceled',
+    };
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    broadcastEvent('EVENT_REVIEWED', events[index]);
+    return events[index];
+  }
+  const { data, error } = await supabase.rpc('review_event_payment', {
+    event_id: eventId,
+    decision,
+  });
+  if (error) throw error;
+  const { error: notifyError } = await supabase.functions.invoke('event-payment-notification', {
+    body: { eventId, kind: 'reviewed' },
+  });
+  if (notifyError) console.error('Decision email failed:', notifyError.message);
+  return { ...data, notificationWarning: notifyError?.message };
+};
+
+export const updateProfile = async (userId, updatedFields) => {
+  if (!isLiveSupabase) {
+    const profiles = getAllProfiles();
+    const index = profiles.findIndex((profile) => profile.id === userId);
+    if (index < 0) return null;
+    profiles[index] = { ...profiles[index], ...updatedFields };
+    localStorage.setItem(STORAGE_KEYS.ALL_PROFILES, JSON.stringify(profiles));
+    const currentUser = getLocalCurrentUser();
+    if (currentUser?.id === userId) {
+      const updatedUser = { ...currentUser, ...updatedFields };
+      setLocalCurrentUser(updatedUser);
+      return updatedUser;
+    }
+    return profiles[index];
+  }
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updatedFields)
+    .eq('id', userId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  const { data: { user } } = await supabase.auth.getUser();
+  return { ...data, email: user?.email };
+};
+
+export const getAdminSignInLogs = async (offset = 0) => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    return [];
+  }
+  const { data, error } = await supabase
+    .from('sign_in_logs')
+    .select('id,user_id,signed_in_at,profiles!sign_in_logs_user_id_fkey(full_name,email,school)')
+    .order('signed_in_at', { ascending: false })
+    .range(offset, offset + 99);
+  if (error) throw error;
+  return data ?? [];
+};
+
+export const recordAttendance = async ({ event_id, participant_id, participant_qr, scanned_by_user_id, scanner_device = 'Web Camera' }) => {
+  if (isLiveSupabase) {
+    const { data, error } = await supabase.rpc('record_attendance_by_qr', {
+      target_event_id: event_id,
+      participant_qr,
+      scanner_device_name: scanner_device,
+    });
+    if (error) {
+      return {
+        success: false,
+        isDuplicate: error.message.includes('already checked in'),
+        message: error.message,
+      };
+    }
+    return { success: true, isDuplicate: false, record: data.record, participant: data.participant };
+  }
+
+  requireProductionBackend();
+
+  const records = getAllAttendance();
+  const existing = records.find((record) => record.event_id === event_id && record.participant_id === participant_id);
+  if (existing) {
+    return {
+      success: false,
+      isDuplicate: true,
+      existingRecord: existing,
+      message: `Already checked in at ${new Date(existing.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+    };
+  }
+  const newRecord = {
+    id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    event_id,
+    participant_id,
+    scanned_by_user_id,
+    scanner_device,
+    time_in: new Date().toISOString(),
+    time_out: null,
+    created_at: new Date().toISOString(),
+  };
+  records.unshift(newRecord);
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(records));
+  broadcastEvent('ATTENDANCE_RECORDED', newRecord);
+  return { success: true, isDuplicate: false, record: newRecord };
 };
 
 export const getAllProfiles = () => {
@@ -202,23 +432,6 @@ export const getInitials = (name) => {
   if (parts.length === 0) return 'U';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
-
-export const updateProfile = (userId, updatedFields) => {
-  const profiles = getAllProfiles();
-  const index = profiles.findIndex((p) => p.id === userId);
-  let updatedUser = null;
-  if (index !== -1) {
-    profiles[index] = { ...profiles[index], ...updatedFields };
-    localStorage.setItem(STORAGE_KEYS.ALL_PROFILES, JSON.stringify(profiles));
-    
-    const currentUser = getLocalCurrentUser();
-    if (currentUser && currentUser.id === userId) {
-      updatedUser = { ...currentUser, ...updatedFields };
-      setLocalCurrentUser(updatedUser);
-    }
-  }
-  return updatedUser;
 };
 
 export const findProfileByEmail = (email) => {
@@ -361,7 +574,6 @@ export const saveProfile = (profile) => {
 export const signInWithPassword = async ({ email, password }) => {
   const normalizedEmail = email.trim().toLowerCase();
 
-  // 1. If live Supabase credentials configured
   if (isLiveSupabase) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -369,32 +581,22 @@ export const signInWithPassword = async ({ email, password }) => {
         password,
       });
       if (error) {
-        console.warn('Supabase signIn error:', error.message);
+        return { success: false, message: error.message };
       } else if (data?.user) {
-        let profile = findProfileByEmail(normalizedEmail);
-        if (!profile) {
-          profile = {
-            id: data.user.id,
-            full_name: data.user.user_metadata?.full_name || normalizedEmail.split('@')[0],
-            school: data.user.user_metadata?.school || 'USTP Cagayan de Oro',
-            email: normalizedEmail,
-            year_level: data.user.user_metadata?.year_level || '1st Year',
-            department: data.user.user_metadata?.department || 'Information Technology',
-            course: data.user.user_metadata?.course || 'BSIT',
-            qr_pass_code: `AID-PASS-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-            created_at: new Date().toISOString(),
-          };
-          saveProfile(profile);
-        }
-        setLocalCurrentUser(profile);
+        const profile = await getAuthenticatedProfile();
+        if (!profile) return { success: false, message: 'Your profile could not be loaded.' };
         return { success: true, user: profile };
       }
     } catch (err) {
-      console.warn('Supabase network notice:', err);
+      return { success: false, message: err.message || 'Unable to sign in.' };
     }
+    return { success: false, message: 'Unable to sign in.' };
   }
 
-  // 2. Local storage verification
+  if (isProductionBackendUnavailable) {
+    return { success: false, message: 'This deployment is not configured with Supabase. Contact the administrator.' };
+  }
+
   const profile = findProfileByEmail(normalizedEmail);
   if (!profile) {
     return {
@@ -426,6 +628,31 @@ export const signUpWithPassword = async ({
   year_level = '1st Year',
 }) => {
   const normalizedEmail = email.trim().toLowerCase();
+
+  if (isLiveSupabase) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: { full_name: full_name.trim(), school: school.trim(), department: department.trim(), course: course.trim(), year_level },
+        },
+      });
+      if (error) return { success: false, message: error.message };
+      if (!data.session) {
+        return { success: false, message: 'Check your email to verify your account, then sign in.' };
+      }
+      const profile = await getAuthenticatedProfile();
+      if (!profile) return { success: false, message: 'Account created, but the profile could not be loaded.' };
+      return { success: true, user: profile };
+    } catch (err) {
+      return { success: false, message: err.message || 'Unable to create your account.' };
+    }
+  }
+
+  if (isProductionBackendUnavailable) {
+    return { success: false, message: 'This deployment is not configured with Supabase. Contact the administrator.' };
+  }
 
   // Check duplicate
   const existing = findProfileByEmail(normalizedEmail);
@@ -553,38 +780,3 @@ export const getAllAttendance = () => {
   }
 };
 
-export const recordAttendance = ({ event_id, participant_id, scanned_by_user_id, scanner_device = 'Web Cam' }) => {
-  const records = getAllAttendance();
-  
-  // Check duplicate
-  const existing = records.find((r) => r.event_id === event_id && r.participant_id === participant_id);
-  if (existing) {
-    return {
-      success: false,
-      isDuplicate: true,
-      existingRecord: existing,
-      message: `Already checked in at ${new Date(existing.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-    };
-  }
-
-  const newRecord = {
-    id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-    event_id,
-    participant_id,
-    scanned_by_user_id,
-    scanner_device,
-    time_in: new Date().toISOString(),
-    time_out: null,
-    created_at: new Date().toISOString(),
-  };
-
-  records.unshift(newRecord);
-  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(records));
-  broadcastEvent('ATTENDANCE_RECORDED', newRecord);
-
-  return {
-    success: true,
-    isDuplicate: false,
-    record: newRecord,
-  };
-};

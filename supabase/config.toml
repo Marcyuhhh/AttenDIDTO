@@ -1,0 +1,4 @@
+project_id = "lista"
+
+[functions.event-payment-notification]
+verify_jwt = true
