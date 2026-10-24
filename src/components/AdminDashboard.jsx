@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, Check, Clock3, LogOut, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { getAdminSignInLogs, getPendingEventRequests, reviewEventPayment } from '../supabaseClient';
 
-export default function AdminDashboard({ currentUser, onLogOut }) {
+export default function AdminDashboard({ currentUser, onLogOut, logoutError }) {
   const [activeTab, setActiveTab] = useState('inbox');
   const [requests, setRequests] = useState([]);
   const [signIns, setSignIns] = useState([]);
@@ -91,6 +91,7 @@ export default function AdminDashboard({ currentUser, onLogOut }) {
         </nav>
         <div className="sidebar-footer">
           <button className="sidebar-tab sidebar-tab-logout" onClick={onLogOut}><LogOut size={20} /><span>Sign Out</span></button>
+          {logoutError && <div role="alert" style={{ padding: '0.5rem', color: '#fecaca', fontSize: '0.75rem' }}>{logoutError}</div>}
         </div>
       </aside>
 

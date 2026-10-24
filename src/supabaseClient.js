@@ -196,6 +196,7 @@ export const logOutUser = () => {
     return supabase.auth.signOut();
   }
   setLocalCurrentUser(null);
+  return { error: null };
 };
 
 export const getAuthenticatedProfile = async () => {

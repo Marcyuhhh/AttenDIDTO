@@ -56,6 +56,7 @@ export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [historyEvents, setHistoryEvents] = useState([]);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [logoutError, setLogoutError] = useState('');
   const currentUserIdRef = useRef(null);
 
   // Modals state
@@ -140,12 +141,19 @@ export default function App() {
     }
   }, []);
 
-  const handleLogOut = useCallback(() => {
-    logOutUser();
-    setCurrentUser(null);
-    setActiveTab('home');
-    setSelectedEventId(null);
-    setView('landing');
+  const handleLogOut = useCallback(async () => {
+    setLogoutError('');
+    try {
+      const { error } = await logOutUser();
+      if (error) throw error;
+      currentUserIdRef.current = null;
+      setCurrentUser(null);
+      setActiveTab('home');
+      setSelectedEventId(null);
+      setView('landing');
+    } catch (error) {
+      setLogoutError(error.message || 'Could not sign out. Check your connection and try again.');
+    }
   }, []);
 
   const selectedEvent = useMemo(
@@ -215,7 +223,7 @@ export default function App() {
   if (currentUser.role === 'admin') {
     return (
       <Suspense fallback={loadingFallback}>
-        <AdminDashboard currentUser={currentUser} onLogOut={handleLogOut} />
+        <AdminDashboard currentUser={currentUser} onLogOut={handleLogOut} logoutError={logoutError} />
       </Suspense>
     );
   }
@@ -293,6 +301,7 @@ export default function App() {
 
       {/* ─── MAIN CONTENT AREA ─── */}
       <main className="dashboard-main">
+        {logoutError && <div role="alert" style={{ margin: '1rem', padding: '0.75rem 1rem', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '6px' }}>{logoutError}</div>}
 
         {/* ══════════════════════════════════════════
             TAB: HOME
