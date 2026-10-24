@@ -18,6 +18,7 @@ import confetti from 'canvas-confetti';
 import { 
   signInWithPassword, 
   signUpWithPassword,
+  sendPasswordReset,
 } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
@@ -151,7 +152,23 @@ export default function AuthScreen({ onAuthSuccess, onGoBack }) {
     } else {
       sound.playError();
       setErrorMsg(result.message || 'Registration failed. Please try again.');
+      if (result.code === 'user_exists') {
+        setMode('login');
+        setPassword('');
+      }
     }
+  };
+
+  const handlePasswordReset = async () => {
+    setErrorMsg('');
+    if (!email || !email.includes('@')) {
+      setErrorMsg('Enter your account email first, then choose Forgot password.');
+      return;
+    }
+    setIsLoading(true);
+    const { error } = await sendPasswordReset(email);
+    setIsLoading(false);
+    setErrorMsg(error ? error.message : 'If an account exists for this email, Supabase will send a password reset message.');
   };
 
   return (
@@ -309,6 +326,11 @@ export default function AuthScreen({ onAuthSuccess, onGoBack }) {
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.4rem' }}>
+                    <button type="button" onClick={handlePasswordReset} disabled={isLoading} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--color-primary)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                      Forgot password?
                     </button>
                   </div>
                 </div>

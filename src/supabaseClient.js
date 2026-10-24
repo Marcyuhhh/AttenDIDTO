@@ -199,6 +199,15 @@ export const logOutUser = () => {
   return { error: null };
 };
 
+export const sendPasswordReset = async (email) => {
+  if (!isLiveSupabase) {
+    return { error: new Error('Password reset requires the configured Supabase service.') };
+  }
+  return supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: window.location.origin,
+  });
+};
+
 export const getAuthenticatedProfile = async () => {
   if (!isLiveSupabase) {
     if (isProductionBackendUnavailable) return null;
@@ -206,6 +215,8 @@ export const getAuthenticatedProfile = async () => {
   }
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session?.user) return null;
+  const { error: ensureProfileError } = await supabase.rpc('ensure_my_profile');
+  if (ensureProfileError) throw ensureProfileError;
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
@@ -582,7 +593,10 @@ export const signInWithPassword = async ({ email, password }) => {
         password,
       });
       if (error) {
-        return { success: false, message: error.message };
+        const message = error.message.toLowerCase().includes('invalid login credentials')
+          ? 'Email or password is incorrect. If you have not created an account yet, choose Create Account.'
+          : error.message;
+        return { success: false, message };
       } else if (data?.user) {
         const profile = await getAuthenticatedProfile();
         if (!profile) return { success: false, message: 'Your profile could not be loaded.' };
@@ -639,9 +653,25 @@ export const signUpWithPassword = async ({
           data: { full_name: full_name.trim(), school: school.trim(), department: department.trim(), course: course.trim(), year_level },
         },
       });
-      if (error) return { success: false, message: error.message };
+      if (error) {
+        const duplicate = /already (registered|exists)|user already/i.test(error.message);
+        return {
+          success: false,
+          code: duplicate ? 'user_exists' : undefined,
+          message: duplicate
+            ? 'This email already has an account. Sign in with that email, or use Forgot Password if needed.'
+            : error.message,
+        };
+      }
+        if (data.user && data.user.identities?.length === 0) {
+          return {
+            success: false,
+            code: 'user_exists',
+            message: 'This email already has an account. Sign in with that email, or use Forgot Password if needed.',
+          };
+        }
       if (!data.session) {
-        return { success: false, message: 'Check your email to verify your account, then sign in.' };
+          return { success: false, message: 'Account created. Check your email to verify it, then sign in.' };
       }
       const profile = await getAuthenticatedProfile();
       if (!profile) return { success: false, message: 'Account created, but the profile could not be loaded.' };
