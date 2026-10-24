@@ -5,6 +5,8 @@ import {
   getCloudDashboardData,
   getAllAttendance,
   getAllProfiles,
+  deleteOwnedEvent,
+  deleteOwnAccount,
   logOutUser,
   subscribeToBroadcast,
   subscribeToCloudChanges,
@@ -18,15 +20,17 @@ const EventConsole = lazy(() => import('./components/EventConsole'));
 const StartEventModal = lazy(() => import('./components/StartEventModal'));
 const ParticipantScannerModal = lazy(() => import('./components/ParticipantScannerModal'));
 const PrintReportModal = lazy(() => import('./components/PrintReportModal'));
-const EditProfileModal = lazy(() => import('./components/EditProfileModal'));
 const AttendanceHistory = lazy(() => import('./components/AttendanceHistory'));
+const ProfileView = lazy(() => import('./components/ProfileView'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import { 
   QrCode, 
   Home, 
   CalendarDays, 
   Clock, 
+  UserRound,
   LogOut, 
+  Trash2,
   PlusCircle, 
   ShieldCheck, 
   ArrowLeft, 
@@ -64,7 +68,10 @@ export default function App() {
   const [isStartEventOpen, setIsStartEventOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileView, setProfileView] = useState('profile');
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [eventDeleteError, setEventDeleteError] = useState('');
 
   // Initialize data on mount
   useEffect(() => {
@@ -79,7 +86,12 @@ export default function App() {
         if (user) {
           const { events: cloudEvents, attendance, profiles: cloudProfiles, historyEvents: cloudHistoryEvents } = await getCloudDashboardData(user);
           if (!mounted) return;
-          setEvents(cloudEvents);
+          setEvents((previous) => {
+            const combined = [...cloudEvents, ...previous];
+            return [...new Map(combined.map((event) => [event.id, event])).values()]
+              .filter((event) => event.host_user_id === user.id)
+              .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+          });
           setAttendanceRecords(attendance);
           setProfiles(cloudProfiles);
           setHistoryEvents(cloudHistoryEvents);
@@ -107,7 +119,7 @@ export default function App() {
       if (data.type === 'ATTENDANCE_RECORDED') {
         setAttendanceRecords((prev) => [data.payload, ...prev.filter((r) => r.id !== data.payload.id)]);
       } else if (data.type === 'EVENT_CREATED') {
-        setEvents((prev) => [data.payload, ...prev]);
+        setEvents((prev) => [data.payload, ...prev.filter((event) => event.id !== data.payload.id)]);
       } else if (data.type === 'USER_UPDATED') {
         setCurrentUser(data.payload);
       }
@@ -120,6 +132,8 @@ export default function App() {
           if (data.payload.host_user_id !== currentUserIdRef.current) return previous;
           return [data.payload, ...previous.filter((event) => event.id !== data.payload.id)];
         });
+      } else if (data.type === 'EVENT_DELETED' && data.payload?.id) {
+        setEvents((previous) => previous.filter((event) => event.id !== data.payload.id));
       }
     });
 
@@ -131,7 +145,7 @@ export default function App() {
   }, []);
 
   const handleEventCreated = useCallback((newEvent) => {
-    setEvents((prev) => [newEvent, ...prev]);
+    setEvents((previous) => [newEvent, ...previous.filter((event) => event.id !== newEvent.id)]);
     setSelectedEventId(null);
   }, []);
 
@@ -157,6 +171,37 @@ export default function App() {
     }
   }, []);
 
+  const handleDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    setIsDeletingEvent(true);
+    setEventDeleteError('');
+    try {
+      await deleteOwnedEvent(eventToDelete.id);
+      setEvents((previous) => previous.filter((event) => event.id !== eventToDelete.id));
+      setSelectedEventId((previous) => previous === eventToDelete.id ? null : previous);
+      setEventToDelete(null);
+    } catch (error) {
+      setEventDeleteError(error.message || 'Unable to delete this event.');
+    } finally {
+      setIsDeletingEvent(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteOwnAccount();
+      currentUserIdRef.current = null;
+      setCurrentUser(null);
+      setEvents([]);
+      setAttendanceRecords([]);
+      setProfiles([]);
+      setView('landing');
+    } catch (error) {
+      setLogoutError(error.message || 'Unable to delete the account.');
+      throw error;
+    }
+  };
+
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) ?? null,
     [events, selectedEventId]
@@ -176,6 +221,7 @@ export default function App() {
       { id: 'home', label: 'Home', icon: <Home size={20} /> },
       { id: 'events', label: 'My Events', icon: <CalendarDays size={20} /> },
       { id: 'history', label: 'History', icon: <Clock size={20} /> },
+      { id: 'profile', label: 'Profile', icon: <UserRound size={20} /> },
     ],
     []
   );
@@ -206,7 +252,12 @@ export default function App() {
           setCurrentUser(user);
           currentUserIdRef.current = user.id;
           getCloudDashboardData(user).then(({ events: cloudEvents, attendance, profiles: cloudProfiles, historyEvents: cloudHistoryEvents }) => {
-            setEvents(cloudEvents);
+            setEvents((previous) => {
+              const combined = [...cloudEvents, ...previous];
+              return [...new Map(combined.map((event) => [event.id, event])).values()]
+                .filter((event) => event.host_user_id === user.id)
+                .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+            });
             setAttendanceRecords(attendance);
             setProfiles(cloudProfiles);
             setHistoryEvents(cloudHistoryEvents);
@@ -254,8 +305,11 @@ export default function App() {
             <div className="sidebar-user-meta">{currentUser.year_level}</div>
           </div>
           <button
-            onClick={() => setIsProfileOpen(true)}
-            title="Edit Profile"
+            onClick={() => {
+              setProfileView('profile');
+              setActiveTab('profile');
+            }}
+            title="Profile"
             style={{
               background: 'transparent',
               border: 'none',
@@ -279,11 +333,12 @@ export default function App() {
           {sidebarTabs.map((tab) => (
             <button
               key={tab.id}
-              className={`sidebar-tab ${activeTab === tab.id ? 'sidebar-tab-active' : ''}`}
+              className={`sidebar-tab ${tab.id === 'profile' ? 'sidebar-tab-profile' : ''} ${activeTab === tab.id ? 'sidebar-tab-active' : ''}`}
               onClick={() => {
                 setActiveTab(tab.id);
                 setSelectedEventId(null);
               }}
+              aria-label={tab.label}
             >
               {tab.icon}
               <span>{tab.label}</span>
@@ -326,7 +381,10 @@ export default function App() {
             {/* Personal QR Pass with Edit Profile handler */}
             <PersonalQRPass 
               user={currentUser} 
-              onOpenEditProfile={() => setIsProfileOpen(true)}
+              onNavigateToProfile={() => {
+                setProfileView('profile');
+                setActiveTab('profile');
+              }}
             />
           </div>
         )}
@@ -395,13 +453,14 @@ export default function App() {
                       const attendCount = getEventAttendanceCount(evt.id);
                       const progress = evt.target_attendees > 0 ? Math.round((attendCount / evt.target_attendees) * 100) : 0;
                       return (
-                        <button
-                          key={evt.id}
-                          className="event-card"
-                          onClick={() => evt.status === 'active' && setSelectedEventId(evt.id)}
-                          disabled={evt.status !== 'active'}
-                          aria-label={evt.status === 'active' ? `Open ${evt.title}` : `${evt.title} pending payment review`}
-                        >
+                        <article key={evt.id} className={`event-card ${evt.status !== 'active' ? 'event-card-pending' : ''}`}>
+                          <button
+                            type="button"
+                            className="event-card-open"
+                            onClick={() => evt.status === 'active' && setSelectedEventId(evt.id)}
+                            disabled={evt.status !== 'active'}
+                            aria-label={evt.status === 'active' ? `Open ${evt.title}` : `${evt.title} pending payment review`}
+                          >
                           <div className="event-card-top">
                             <div className="event-card-icon">
                               <CalendarDays size={20} />
@@ -426,7 +485,20 @@ export default function App() {
                             </div>
                             <span className="event-card-percent">{progress}%</span>
                           </div>
-                        </button>
+                          </button>
+                          <button
+                            type="button"
+                            className="event-delete-button"
+                            onClick={() => {
+                              setEventDeleteError('');
+                              setEventToDelete(evt);
+                            }}
+                            aria-label={`Delete ${evt.title}`}
+                            title="Delete event"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </article>
                       );
                     })}
                   </div>
@@ -445,6 +517,20 @@ export default function App() {
               currentUser={currentUser} 
               attendanceRecords={attendanceRecords} 
               events={historyEvents}
+            />
+          </div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="dashboard-tab-content animate-fade-in">
+            <ProfileView
+              user={currentUser}
+              view={profileView}
+              onViewChange={setProfileView}
+              onOpenEditProfile={() => setProfileView('edit')}
+              onSaveProfile={(updated) => setCurrentUser(updated)}
+              onDeleteAccount={handleDeleteAccount}
+              onLogOut={handleLogOut}
             />
           </div>
         )}
@@ -480,12 +566,18 @@ export default function App() {
         />
       )}
 
-      {isProfileOpen && (
-        <EditProfileModal
-          currentUser={currentUser}
-          onClose={() => setIsProfileOpen(false)}
-          onSave={(updated) => setCurrentUser(updated)}
-        />
+      {eventToDelete && (
+        <div className="modal-overlay" onClick={() => !isDeletingEvent && setEventToDelete(null)}>
+          <div className="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="delete-event-title" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '440px', width: '100%', padding: '1.75rem' }}>
+            <h2 id="delete-event-title" style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Delete this event permanently?</h2>
+            <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.5 }}>“{eventToDelete.title}” and all of its attendance records will be permanently deleted. This cannot be undone.</p>
+            {eventDeleteError && <div role="alert" style={{ color: '#b91c1c', marginTop: '0.75rem' }}>{eventDeleteError}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setEventToDelete(null)} disabled={isDeletingEvent}>Cancel</button>
+              <button type="button" className="btn" style={{ background: '#dc2626', color: '#fff' }} onClick={handleDeleteEvent} disabled={isDeletingEvent}>{isDeletingEvent ? 'Deleting...' : 'Confirm delete'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
     </Suspense>

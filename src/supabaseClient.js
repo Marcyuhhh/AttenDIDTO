@@ -271,7 +271,10 @@ export const subscribeToCloudChanges = (callback) => {
   const channel = supabase
     .channel('attendidto-dashboard-updates')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, (payload) => {
-      callback({ type: 'EVENT_UPDATED', payload: payload.new });
+      callback({
+        type: payload.eventType === 'DELETE' ? 'EVENT_DELETED' : 'EVENT_UPDATED',
+        payload: payload.eventType === 'DELETE' ? payload.old : payload.new,
+      });
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'attendance_records' }, (payload) => {
       callback({ type: 'ATTENDANCE_RECORDED', payload: payload.new });
@@ -774,6 +777,33 @@ export const deleteUserAccount = (userId) => {
 
   broadcastEvent('PROFILES_UPDATED', profiles);
   broadcastEvent('USER_UPDATED', null);
+  return true;
+};
+
+export const deleteOwnedEvent = async (eventId) => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    const events = getAllEvents().filter((event) => event.id !== eventId);
+    const attendance = getAllAttendance().filter((record) => record.event_id !== eventId);
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+    return true;
+  }
+  const { error } = await supabase.from('events').delete().eq('id', eventId);
+  if (error) throw error;
+  return true;
+};
+
+export const deleteOwnAccount = async () => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    const user = getLocalCurrentUser();
+    if (user) deleteUserAccount(user.id);
+    return true;
+  }
+  const { error } = await supabase.functions.invoke('delete-own-account', { body: {} });
+  if (error) throw error;
+  await supabase.auth.signOut({ scope: 'local' });
   return true;
 };
 

@@ -283,6 +283,10 @@ button, input, select, textarea {
   text-align: left;
 }
 
+.sidebar-tab-profile {
+  display: none;
+}
+
 .sidebar-tab:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #e2e8f0;
@@ -420,15 +424,10 @@ button, input, select, textarea {
 }
 
 .event-card {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  text-align: left;
+  display: block;
   background: #ffffff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 1.5rem;
-  cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -437,6 +436,49 @@ button, input, select, textarea {
 .event-card:hover {
   border-color: var(--color-primary);
   background: #f8fafc;
+}
+
+.event-card-open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 1.5rem;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.event-card-open:disabled {
+  cursor: default;
+}
+
+.event-card-pending .event-card-open {
+  padding-right: 3.25rem;
+}
+
+.event-delete-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.event-delete-button:hover {
+  background: #fef2f2;
 }
 
 .event-card-top {
@@ -530,16 +572,23 @@ button, input, select, textarea {
   .sidebar {
     width: 100%;
     min-width: unset;
-    height: auto;
-    position: relative;
+    height: calc(64px + env(safe-area-inset-bottom));
+    min-height: 64px;
+    position: fixed;
+    inset: auto 0 0;
     flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 0.5rem;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0 0 env(safe-area-inset-bottom);
+    background: #0f172a;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    overflow: visible;
+    z-index: 100;
   }
 
   .sidebar-brand {
-    padding: 0.5rem 0.75rem;
+    display: none;
   }
 
   .sidebar-user {
@@ -548,15 +597,31 @@ button, input, select, textarea {
 
   .sidebar-nav {
     flex-direction: row;
-    flex: unset;
-    padding: 0;
-    gap: 0.15rem;
+    flex: 1;
+    max-width: 520px;
+    justify-content: space-around;
+    align-items: stretch;
+    padding: 0.25rem 0.5rem;
+    gap: 0;
   }
 
   .sidebar-tab {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.82rem;
-    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+    min-height: 52px;
+    padding: 0.45rem 0.25rem;
+    justify-content: center;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .sidebar-tab-profile {
+    display: inline-flex;
+  }
+
+  .sidebar-tab svg {
+    width: 23px;
+    height: 23px;
   }
 
   .sidebar-tab-active {
@@ -565,13 +630,23 @@ button, input, select, textarea {
   }
 
   .sidebar-footer {
-    margin-top: 0;
-    padding: 0.5rem;
+    display: contents;
+    margin: 0;
+    padding: 0;
     border-top: none;
   }
 
+  .sidebar-footer .sidebar-tab-logout {
+    display: none;
+  }
+
+  .sidebar-nav .sidebar-tab {
+    flex: 1;
+    max-width: 130px;
+  }
+
   .dashboard-tab-content {
-    padding: 1.25rem 1rem 3rem;
+    padding: 1.25rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
   }
 
   .event-cards-grid {

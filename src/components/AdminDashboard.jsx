@@ -48,6 +48,12 @@ export default function AdminDashboard({ currentUser, onLogOut, logoutError }) {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(''), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const decide = async (eventId, decision) => {
     setBusyEventId(eventId);
     setError('');
@@ -146,12 +152,11 @@ export default function AdminDashboard({ currentUser, onLogOut, logoutError }) {
             signIns.length === 0 ? <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>No sign-in records yet.</div> :
               <div style={{ width: '100%', overflowX: 'auto' }}>
                 <table className="flat-table">
-                  <thead><tr><th>User</th><th>Email</th><th>School</th><th>Signed in</th></tr></thead>
+                  <thead><tr><th>User</th><th>Email</th><th>Signed in</th></tr></thead>
                   <tbody>{signIns.map((entry) => (
                     <tr key={entry.id}>
                       <td>{entry.profiles?.full_name || entry.user_id}</td>
                       <td>{entry.profiles?.email || 'Unavailable'}</td>
-                      <td>{entry.profiles?.school || 'Unavailable'}</td>
                       <td>{new Date(entry.signed_in_at).toLocaleString()}</td>
                     </tr>
                   ))}</tbody>

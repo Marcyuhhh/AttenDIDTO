@@ -61,7 +61,7 @@ The production workflow uses Supabase Auth and Postgres. New event requests are 
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In **Project Settings → API**, copy the project URL and the publishable/anon client key.
-3. The GitHub Supabase workflow applies [`supabase/migrations`](./supabase/migrations) in order. On a fresh project it creates the base schema and then the admin workflow schema.
+3. The GitHub Supabase workflow applies [`supabase/migrations`](./supabase/migrations) in order. On a fresh project it creates the base schema, admin workflow, profile repair, and owner-only event deletion policies.
 4. In **Authentication → URL Configuration**, add the local and deployed app URLs to the allowed redirect URLs. Enable email confirmation for user accounts.
 5. In **Authentication → Providers → Email**, ensure password sign-in is enabled.
 
@@ -111,11 +111,11 @@ The dashboard inbox is backed by the database; email is a notification. Failed e
 Create these repository secrets under **GitHub → Settings → Secrets and variables → Actions**:
 
 - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
-- `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`
+- `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_SERVICE_ROLE_KEY`
 - `RESEND_API_KEY`, `ADMIN_EMAIL`, `NOTIFICATION_FROM_EMAIL`, `APP_ORIGIN`
 
 Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Vercel project environment variables; the workflow pulls them from Vercel during its production build. The Vercel token/project identifiers can be obtained by linking the project with the Vercel CLI and checking `.vercel/project.json` (do not commit that file).
 
-Create a GitHub environment named **production** and configure **Required reviewers**. The Supabase workflow is started manually from **Actions → Deploy Supabase production changes → Run workflow**, and requires the confirmation checkbox plus approval for that environment. It applies committed migrations and deploys the notification function. If Vercel's native Git integration also deploys production on pushes, disable one of the two deployment paths to avoid duplicate deployments.
+Create a GitHub environment named **production** and configure **Required reviewers**. The Supabase workflow is started manually from **Actions → Deploy Supabase production changes → Run workflow**, and requires the confirmation checkbox plus approval for that environment. It applies committed migrations and deploys the notification and self-account-deletion functions. `SUPABASE_SERVICE_ROLE_KEY` is stored only as a Supabase Edge Function secret and must never be added to Vercel or any `VITE_` variable. If Vercel's native Git integration also deploys production on pushes, disable one of the two deployment paths to avoid duplicate deployments.
 
 The app intentionally fails closed in a production build without Supabase configuration. Local development without Supabase remains a demo using browser storage; it does not provide cross-device accounts, admin review, or production payment verification. Payment references are manually reviewed, not verified automatically against a payment provider.

@@ -205,13 +205,9 @@ function EventConsole({ event, attendanceRecords, profiles = [], onOpenScanner, 
                   <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#64748b', marginBottom: '0.5rem' }}>
                     No check-ins recorded yet
                   </div>
-                  <div style={{ fontSize: '0.86rem', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
+                  <div style={{ fontSize: '0.86rem', maxWidth: '400px', margin: '0 auto' }}>
                     Click <strong>"Sign in a Participant"</strong> to launch the scanner and begin scanning student QR codes in real time.
                   </div>
-                  <button className="btn btn-emerald" onClick={onOpenScanner} style={{ padding: '0.65rem 1.25rem', fontSize: '0.88rem' }}>
-                    <Camera size={16} />
-                    <span>Launch Camera Scanner</span>
-                  </button>
                 </td>
               </tr>
             ) : (

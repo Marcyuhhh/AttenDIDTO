@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
-  User, 
   Mail, 
   GraduationCap, 
   Building2, 
@@ -12,19 +11,26 @@ import {
   Trash2, 
   Copy, 
   Check, 
-  AlertTriangle,
   ShieldCheck,
-  KeyRound,
-  X
+  LogOut,
 } from 'lucide-react';
-import { getInitials } from '../supabaseClient';
+import { getInitials, updateProfile } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
-export default function ProfileView({ user, onOpenEditProfile, onDeleteAccount }) {
+export default function ProfileView({ user, view = 'profile', onViewChange, onOpenEditProfile, onSaveProfile, onDeleteAccount, onLogOut }) {
   const [copied, setCopied] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [editValues, setEditValues] = useState({
+    full_name: user?.full_name || '',
+    school: user?.school || '',
+    year_level: user?.year_level || '',
+    department: user?.department || '',
+    course: user?.course || '',
+  });
 
   if (!user) return null;
 
@@ -83,11 +89,97 @@ export default function ProfileView({ user, onOpenEditProfile, onDeleteAccount }
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
+    setErrorMessage('');
     sound.playWarning();
     if (onDeleteAccount) {
-      await onDeleteAccount();
+      try {
+        await onDeleteAccount();
+      } catch (error) {
+        setErrorMessage(error.message || 'Unable to delete the account.');
+        setIsDeleting(false);
+      }
     }
   };
+
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
+    setIsSaving(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const { full_name, school, year_level, department, course } = editValues;
+      const updated = await updateProfile(user.id, { full_name, school, year_level, department, course });
+      onSaveProfile?.(updated);
+      setSuccessMessage('Profile updated.');
+      onViewChange?.('profile');
+    } catch (error) {
+      setErrorMessage(error.message || 'Unable to save profile changes.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const profilePageHeading = (
+    <div style={{ marginBottom: '1.5rem' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-primary)', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.2rem' }}>
+        <ShieldCheck size={16} /> <span>Student Identity & Account</span>
+      </div>
+      <h1 style={{ fontSize: '1.75rem', color: 'var(--color-text-main)', margin: 0 }}>{view === 'settings' ? 'Settings' : view === 'edit' ? 'Edit Profile' : 'Profile'}</h1>
+    </div>
+  );
+
+  if (view === 'edit') {
+    return (
+      <div className="profile-page-view animate-fade-in">
+        {profilePageHeading}
+        {errorMessage && <div role="alert" style={{ marginBottom: '1rem', color: '#b91c1c' }}>{errorMessage}</div>}
+        <form onSubmit={handleSaveProfile} style={{ maxWidth: '680px', display: 'grid', gap: '1rem' }}>
+          <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" value={editValues.full_name} onChange={(event) => setEditValues({ ...editValues, full_name: event.target.value })} required /></div>
+          <div className="form-group"><label className="form-label">School / University</label><input className="form-input" value={editValues.school} onChange={(event) => setEditValues({ ...editValues, school: event.target.value })} required /></div>
+          <div className="form-group"><label className="form-label">Year Level</label><select className="form-select" value={editValues.year_level} onChange={(event) => setEditValues({ ...editValues, year_level: event.target.value })}>{['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year'].map((year) => <option key={year}>{year}</option>)}</select></div>
+          <div className="form-group"><label className="form-label">College / Department</label><input className="form-input" value={editValues.department} onChange={(event) => setEditValues({ ...editValues, department: event.target.value })} required /></div>
+          <div className="form-group"><label className="form-label">Degree Program / Course</label><input className="form-input" value={editValues.course} onChange={(event) => setEditValues({ ...editValues, course: event.target.value })} required /></div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => onViewChange?.('profile')}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  if (view === 'settings') {
+    return (
+      <div className="profile-page-view animate-fade-in">
+        {profilePageHeading}
+        {errorMessage && <div role="alert" style={{ marginBottom: '1rem', color: '#b91c1c' }}>{errorMessage}</div>}
+        <section style={{ maxWidth: '680px', borderBottom: '1px solid var(--color-border)', padding: '1rem 0' }}>
+          <h2 style={{ fontSize: '1.05rem' }}>Account</h2>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem' }}>Signed in as {user.email}</p>
+          <button className="btn btn-secondary" onClick={onLogOut}><LogOut size={16} /> Sign Out</button>
+        </section>
+        <section style={{ maxWidth: '680px', marginTop: '1.5rem', padding: '1rem', border: '1px solid #fecaca', borderRadius: '6px', background: '#fff5f5' }}>
+          <h2 style={{ fontSize: '1.05rem', color: '#991b1b' }}>Danger Zone</h2>
+          <p style={{ color: '#7f1d1d', fontSize: '0.88rem' }}>Permanently delete your account, profile, events, and attendance data.</p>
+          <button className="btn" style={{ background: '#dc2626', color: '#fff' }} onClick={() => setShowDeleteModal(true)}><Trash2 size={16} /> Delete Account</button>
+        </section>
+        <button className="btn btn-ghost" style={{ marginTop: '1rem' }} onClick={() => onViewChange?.('profile')}>Back to Profile</button>
+        {showDeleteModal && (
+          <div className="modal-overlay" onClick={() => !isDeleting && setShowDeleteModal(false)}>
+            <div className="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="delete-account-title" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '440px', padding: '1.75rem' }}>
+              <h2 id="delete-account-title">Delete account permanently?</h2>
+              <p>This permanently removes your account and its records. This cannot be undone.</p>
+              {errorMessage && <div role="alert" style={{ color: '#b91c1c' }}>{errorMessage}</div>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+                <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={isDeleting}>Cancel</button>
+                <button className="btn" style={{ background: '#dc2626', color: '#fff' }} onClick={handleConfirmDelete} disabled={isDeleting}>{isDeleting ? 'Deleting...' : 'Confirm delete'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="profile-page-view animate-fade-in" style={{ paddingBottom: '3rem' }}>
@@ -128,9 +220,9 @@ export default function ProfileView({ user, onOpenEditProfile, onDeleteAccount }
 
           <button 
             id="btn-profile-settings"
-            className={`btn ${showSettings ? 'btn-primary' : 'btn-ghost'}`} 
+            className="btn btn-ghost"
             style={{ padding: '0.65rem 1rem', fontSize: '0.88rem' }}
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => onViewChange?.('settings')}
             title="Account Settings"
           >
             <Settings size={16} />
@@ -138,6 +230,8 @@ export default function ProfileView({ user, onOpenEditProfile, onDeleteAccount }
           </button>
         </div>
       </div>
+
+      {successMessage && <div role="status" style={{ marginBottom: '1rem', color: '#166534' }}>{successMessage}</div>}
 
       {/* Main Profile Info Section (Flat layout) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2.5rem' }}>
@@ -269,133 +363,6 @@ export default function ProfileView({ user, onOpenEditProfile, onDeleteAccount }
         </div>
 
       </div>
-
-      {/* Settings Section (Opened by clicking the Settings button) */}
-      {showSettings && (
-        <div className="animate-fade-in" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.75rem', marginTop: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.25rem', color: 'var(--color-text-main)', fontWeight: 800 }}>
-                Account Settings
-              </h3>
-              <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
-                Security options and account management
-              </p>
-            </div>
-            <button 
-              className="btn btn-ghost" 
-              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-              onClick={() => setShowSettings(false)}
-            >
-              Close Settings
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
-            
-            {/* Security Box */}
-            <div style={{ padding: '1.25rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: '#f8fafc' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--color-primary)', fontWeight: 700, fontSize: '0.9rem' }}>
-                <KeyRound size={16} />
-                <span>Password & Authentication</span>
-              </div>
-              <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', margin: 0 }}>
-                Your account is protected with password authentication. Password hash is encrypted in local security and synced via Supabase.
-              </p>
-            </div>
-
-            {/* Danger Zone Box */}
-            <div style={{ padding: '1.25rem', border: '1px solid #fecaca', borderRadius: 'var(--radius-md)', background: '#fff5f5' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', color: '#b91c1c', fontWeight: 700, fontSize: '0.9rem' }}>
-                <AlertTriangle size={16} />
-                <span>Danger Zone</span>
-              </div>
-              <p style={{ fontSize: '0.82rem', color: '#7f1d1d', marginBottom: '1rem' }}>
-                Permanently delete your student account, QR pass token, and all hosted event records.
-              </p>
-              <button
-                id="btn-delete-account"
-                type="button"
-                onClick={() => setShowDeleteModal(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.6rem 1rem',
-                  background: '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '0.84rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#b91c1c'}
-                onMouseLeave={(e) => e.currentTarget.style.background = '#dc2626'}
-              >
-                <Trash2 size={15} />
-                <span>Delete Account</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal for Delete Account */}
-      {showDeleteModal && (
-        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
-          <div 
-            className="modal-card" 
-            onClick={(e) => e.stopPropagation()} 
-            style={{ maxWidth: '440px', width: '100%', padding: '1.75rem', textAlign: 'center' }}
-          >
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-              <AlertTriangle size={28} />
-            </div>
-
-            <h3 style={{ fontSize: '1.25rem', color: '#0f172a', fontWeight: 800, marginBottom: '0.5rem' }}>
-              Delete Account Permanently?
-            </h3>
-
-            <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-              Are you sure you want to delete your account? This will permanently remove your student profile (<strong>{user.email}</strong>), your personal QR pass code, and any events or attendance logs associated with you.
-            </p>
-
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-              <button 
-                type="button"
-                className="btn btn-secondary" 
-                style={{ flex: 1, padding: '0.7rem' }}
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button 
-                type="button"
-                style={{
-                  flex: 1,
-                  padding: '0.7rem',
-                  background: '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
-                  cursor: isDeleting ? 'not-allowed' : 'pointer',
-                  opacity: isDeleting ? 0.7 : 1,
-                }}
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : 'Yes, Delete Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
