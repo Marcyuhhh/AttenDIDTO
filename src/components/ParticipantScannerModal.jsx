@@ -10,6 +10,7 @@ function ParticipantScannerModal({ event, currentUser, profiles = [], onClose, o
   const [cameraError, setCameraError] = useState(null);
   const scannerRef = useRef(null);
   const isCooldownRef = useRef(false);
+  const isLocalDemo = !import.meta.env.PROD && !import.meta.env.VITE_SUPABASE_URL;
 
   const allProfiles = useMemo(() => profiles.length ? profiles : getAllProfiles(), [profiles]);
 
@@ -17,7 +18,6 @@ function ParticipantScannerModal({ event, currentUser, profiles = [], onClose, o
     if (isCooldownRef.current) return;
     isCooldownRef.current = true;
 
-    const isLocalDemo = !import.meta.env.PROD && !import.meta.env.VITE_SUPABASE_URL;
     let matchedParticipant = isLocalDemo ? allProfiles.find(
       (profile) => profile.qr_pass_code?.trim().toUpperCase() === decodedText?.trim().toUpperCase()
     ) : { qr_pass_code: decodedText };
