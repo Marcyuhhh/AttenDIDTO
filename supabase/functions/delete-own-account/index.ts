@@ -1,24 +1,33 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('APP_ORIGIN') ?? 'null',
+const allowedOrigins = (Deno.env.get('APP_ORIGIN') ?? '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+const corsHeaders = (origin: string | null) => ({
+  'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin.replace(/\/$/, '')) ? origin : 'null',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+  'Vary': 'Origin',
+});
 
 Deno.serve(async (request: Request) => {
+  const origin = request.headers.get('Origin');
+  const responseHeaders = corsHeaders(origin);
+  const originAllowed = !origin || allowedOrigins.includes(origin.replace(/\/$/, ''));
   if (request.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(originAllowed ? 'ok' : 'Origin not allowed', {
+      status: originAllowed ? 200 : 403,
+      headers: responseHeaders,
+    });
   }
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...responseHeaders, 'Content-Type': 'application/json' },
   });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-
-  const origin = request.headers.get('Origin');
-  const allowedOrigin = Deno.env.get('APP_ORIGIN');
-  if (!allowedOrigin || (origin && origin !== allowedOrigin)) return json({ error: 'Origin not allowed' }, 403);
+  if (!originAllowed || allowedOrigins.length === 0) return json({ error: 'Origin not allowed or APP_ORIGIN is not configured' }, 403);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');

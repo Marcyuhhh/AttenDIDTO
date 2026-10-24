@@ -802,7 +802,22 @@ export const deleteOwnAccount = async () => {
     return true;
   }
   const { error } = await supabase.functions.invoke('delete-own-account', { body: {} });
-  if (error) throw error;
+  if (error) {
+    let message = error.message;
+    try {
+      const response = error.context;
+      if (response && typeof response.json === 'function') {
+        const details = await response.json();
+        message = details.error || message;
+      }
+    } catch {
+      // Preserve the SDK message when the failure has no JSON response.
+    }
+    if (message === 'Failed to send a request to the Edge Function') {
+      message = 'Could not reach the account deletion service. Deploy the delete-own-account Supabase function and check that APP_ORIGIN matches this site URL.';
+    }
+    throw new Error(message);
+  }
   await supabase.auth.signOut({ scope: 'local' });
   return true;
 };
