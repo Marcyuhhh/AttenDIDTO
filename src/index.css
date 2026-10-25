@@ -1346,6 +1346,160 @@ button, input, select, textarea {
   animation: fadeIn var(--transition-fast) forwards;
 }
 
+.start-event-modal {
+  max-width: 620px;
+  max-height: min(90vh, 760px);
+}
+
+.start-event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.start-event-header h3 {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 1.2rem;
+}
+
+.start-event-header p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.start-event-close {
+  flex: 0 0 auto;
+  padding: 6px;
+  border-radius: 50%;
+}
+
+.start-event-form,
+.start-event-payment {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+.start-event-form .form-group,
+.start-event-payment .form-group {
+  min-width: 0;
+  margin: 0;
+}
+
+.start-event-form .form-label,
+.start-event-payment .form-label {
+  margin-bottom: 0.3rem;
+  font-size: 0.82rem;
+}
+
+.start-event-form .form-input,
+.start-event-form .form-textarea,
+.start-event-payment .form-input {
+  min-height: 42px;
+  padding: 0.58rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.start-event-form .form-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.start-event-two-columns,
+.start-event-time-columns {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.start-event-two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.start-event-time-columns {
+  grid-template-columns: 1.2fr 1fr 1fr;
+}
+
+.start-event-actions,
+.start-event-payment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.start-event-actions {
+  justify-content: flex-end;
+}
+
+.start-event-payment {
+  gap: 1rem;
+}
+
+.start-event-payment-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: -0.65rem;
+}
+
+.start-event-payment-actions .btn-primary {
+  min-width: 180px;
+}
+
+@media (max-width: 560px) {
+  .modal-overlay {
+    padding: 0.65rem;
+  }
+
+  .start-event-modal {
+    max-height: 92vh;
+    border-radius: 18px;
+  }
+
+  .start-event-header {
+    padding: 0.85rem 1rem;
+  }
+
+  .start-event-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .start-event-form,
+  .start-event-payment {
+    gap: 0.65rem;
+    padding: 0.9rem 1rem 1rem;
+  }
+
+  .start-event-two-columns {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .start-event-time-columns {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
+
+  .start-event-time-columns .form-group:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .start-event-actions .btn,
+  .start-event-payment-actions .btn {
+    min-height: 42px;
+  }
+
+  .start-event-payment-actions .btn-primary {
+    min-width: 0;
+  }
+}
+
 /* Camera Scanner Container */
 .scanner-viewport-box {
   position: relative;

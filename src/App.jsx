@@ -95,6 +95,7 @@ export default function App() {
   const [eventToDelete, setEventToDelete] = useState(null);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [eventDeleteError, setEventDeleteError] = useState('');
+  const visibleEvents = events.filter((event) => event.status !== 'canceled');
 
   // Initialize data on mount
   useEffect(() => {
@@ -452,7 +453,7 @@ export default function App() {
                   <div>
                     <h2 style={{ fontSize: '1.5rem' }}>My Events</h2>
                     <p style={{ fontSize: '0.86rem', color: 'var(--color-text-muted)' }}>
-                      {events.length === 0 ? 'You haven\'t created any events yet.' : `${events.length} event${events.length !== 1 ? 's' : ''} created`}
+                      {visibleEvents.length === 0 ? 'You haven\'t created any events yet.' : `${visibleEvents.length} event${visibleEvents.length !== 1 ? 's' : ''} created`}
                     </p>
                   </div>
                   <button
@@ -465,7 +466,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {events.length === 0 ? (
+                {visibleEvents.length === 0 ? (
                   <div style={{ padding: '4.5rem 1rem', textAlign: 'center' }}>
                     <CalendarDays size={42} color="var(--color-primary)" style={{ margin: '0 auto 1.25rem', opacity: 0.7 }} />
                     <h3 style={{ fontSize: '1.35rem', marginBottom: '0.5rem', fontWeight: 700 }}>No Events Created Yet</h3>
@@ -479,7 +480,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="event-cards-grid">
-                    {events.filter((evt) => evt.status !== 'canceled').map((evt) => {
+                    {visibleEvents.map((evt) => {
                       const attendCount = getEventAttendanceCount(evt.id);
                       const progress = evt.target_attendees > 0 ? Math.round((attendCount / evt.target_attendees) * 100) : 0;
                       return (
@@ -570,7 +571,6 @@ export default function App() {
       {/* ─── MODALS (kept as overlays) ─── */}
       {isStartEventOpen && (
         <StartEventModal
-          currentUser={currentUser}
           onClose={() => setIsStartEventOpen(false)}
           onEventCreated={handleEventCreated}
         />

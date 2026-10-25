@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { X, Calendar, MapPin, Users, Clock, ShieldCheck, CheckCircle2, CreditCard, Sparkles, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, CreditCard } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { submitEventRequest } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
-export default function StartEventModal({ currentUser, onClose, onEventCreated }) {
+export default function StartEventModal({ onClose, onEventCreated }) {
   const [step, setStep] = useState('details'); // 'details' | 'payment' | 'success'
   
   // Event details state
@@ -12,16 +12,16 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
     title: '',
     organization_name: '',
     venue: '',
-    event_date: new Date().toISOString().split('T')[0],
-    start_time: '08:00',
-    end_time: '17:00',
-    target_attendees: 150,
+    event_date: '',
+    start_time: '',
+    end_time: '',
+    target_attendees: '',
     requires_time_out: false,
     description: '',
   });
 
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState('GCash'); // 'GCash' | 'PayMaya' | 'Card'
+  const [paymentMethod, setPaymentMethod] = useState('GCash');
   const [paymentReference, setPaymentReference] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -82,60 +82,57 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+      <div className="modal-card start-event-modal" onClick={(e) => e.stopPropagation()}>
         
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
+        <div className="start-event-header">
           <div>
-            <h3 style={{ fontSize: '1.3rem', color: 'var(--color-primary)' }}>
+            <h3>
               {step === 'details' && 'Start a New Campus Event'}
               {step === 'payment' && 'Event Verification & Payment'}
               {step === 'success' && 'Payment Submitted for Review'}
             </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>
+            <p>
               {step === 'details' && 'Set up your event details and target attendees'}
               {step === 'payment' && 'Technopreneurship student-friendly event fee'}
               {step === 'success' && 'Scanning will be enabled after admin approval'}
             </p>
           </div>
-          <button onClick={onClose} className="btn-ghost" style={{ padding: '6px', borderRadius: '50%' }}>
+          <button onClick={onClose} className="btn-ghost start-event-close" aria-label="Close event form">
             <X size={20} />
           </button>
         </div>
 
         {/* STEP 1: Event Details */}
         {step === 'details' && (
-          <form onSubmit={handleDetailsSubmit} style={{ padding: '1.5rem' }}>
+          <form onSubmit={handleDetailsSubmit} className="start-event-form">
             <div className="form-group">
-              <label className="form-label">Event Title *</label>
+              <label className="form-label">Event Title</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="e.g. CDO Student Tech Summit 2026"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="start-event-two-columns">
               <div className="form-group">
                 <label className="form-label">Host Organization / Club</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="e.g. USTP SITE / Computer Society"
                   value={formData.organization_name}
                   onChange={(e) => setFormData({ ...formData, organization_name: e.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Venue *</label>
+                <label className="form-label">Venue</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="e.g. USTP Gym / AVR Room 2"
                   value={formData.venue}
                   onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
                   required
@@ -143,7 +140,7 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.85rem' }}>
+            <div className="start-event-time-columns">
               <div className="form-group">
                 <label className="form-label">Date</label>
                 <input
@@ -176,55 +173,32 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '1rem', alignItems: 'center' }}>
-              <div className="form-group">
-                <label className="form-label">Target Attendees</label>
-                <input
-                  type="number"
-                  min="10"
-                  max="5000"
-                  className="form-input"
-                  value={formData.target_attendees}
-                  onChange={(e) => setFormData({ ...formData, target_attendees: e.target.value })}
-                  required
-                />
-              </div>
-
-              {/* Time Out Toggle */}
-              <div style={{ padding: '0.65rem 0.85rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.84rem', fontWeight: 600 }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.requires_time_out}
-                    onChange={(e) => setFormData({ ...formData, requires_time_out: e.target.checked })}
-                    style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)' }}
-                  />
-                  <span>Require Time-Out Scan</span>
-                </label>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '2px', marginLeft: '22px' }}>
-                  For whole-day events requiring afternoon exit scans
-                </div>
-              </div>
+            <div className="form-group">
+              <label className="form-label">Target Attendees</label>
+              <input
+                type="number"
+                min="10"
+                max="5000"
+                className="form-input"
+                value={formData.target_attendees}
+                onChange={(e) => setFormData({ ...formData, target_attendees: e.target.value })}
+                required
+              />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Description (Optional)</label>
+              <label className="form-label">Description</label>
               <textarea
                 rows={2}
                 className="form-textarea"
-                placeholder="Brief event description for attendees..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
-                Cancel
-              </button>
+            <div className="start-event-actions">
               <button type="submit" className="btn btn-gold">
-                <span>Proceed to Verification & Fee</span>
-                <span>→</span>
+                Proceed to Verification &amp; Fee
               </button>
             </div>
           </form>
@@ -232,7 +206,7 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
 
         {/* STEP 2: Technopreneurship Payment Modal */}
         {step === 'payment' && (
-          <div style={{ padding: '1.5rem' }}>
+          <div className="start-event-payment">
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
                 <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
@@ -250,8 +224,8 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
 
             {/* Payment Method Switcher */}
             <label className="form-label">Select Payment Method</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.65rem', marginBottom: '1.25rem' }}>
-              {['GCash', 'PayMaya', 'Card'].map((method) => (
+            <div className="start-event-payment-methods">
+              {['GCash', 'PayMaya'].map((method) => (
                 <button
                   key={method}
                   type="button"
@@ -279,13 +253,12 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
 
             {/* Payment reference submitted for manual review */}
             <div className="form-group">
-              <label className="form-label">Payment Transfer Reference *</label>
+              <label className="form-label">Payment Transfer Reference</label>
               <input
                 type="text"
                 className="form-input"
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="Enter the reference from your payment receipt"
                 maxLength={120}
                 required
               />
@@ -293,9 +266,9 @@ export default function StartEventModal({ currentUser, onClose, onEventCreated }
             {errorMessage && <div role="alert" style={{ color: '#b91c1c', fontSize: '0.82rem', marginBottom: '0.75rem' }}>{errorMessage}</div>}
             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>Your event stays pending until an administrator verifies the payment reference.</div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
+            <div className="start-event-payment-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setStep('details')}>
-                ← Back
+                Back
               </button>
               <button
                 type="button"
