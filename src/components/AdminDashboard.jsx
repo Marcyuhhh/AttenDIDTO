@@ -204,7 +204,7 @@ export default function AdminDashboard({ currentUser, onLogOut, logoutError }) {
               {isLoadingUserActivity ? <p style={{ color: 'var(--color-text-muted)' }}>Loading user activity…</p> : userActivity && (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-                    {[['Events created', userActivity.createdEvents.length], ['Events attended', userActivity.attendedEvents.length], ['Recent sign-ins', userActivity.signIns.length]].map(([label, value]) => (
+                    {[['Events created', userActivity.createdEvents.length], ['Events attended', userActivity.attendedEvents.length]].map(([label, value]) => (
                       <div key={label} style={{ padding: '0.9rem', background: '#fff', border: '1px solid var(--color-border)', borderRadius: '8px' }}>
                         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem' }}>{label}</div>
                         <strong style={{ fontSize: '1.25rem' }}>{value}</strong>
@@ -219,14 +219,6 @@ export default function AdminDashboard({ currentUser, onLogOut, logoutError }) {
                     <section style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: '8px', background: '#fff' }}>
                       <h3 style={{ margin: '0 0 0.75rem' }}>Events attended</h3>
                       {renderEventRows(userActivity.attendedEvents, 'This user has not attended any events.', (record) => record.event, (record) => record.time_in)}
-                    </section>
-                    <section style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: '8px', background: '#fff' }}>
-                      <h3 style={{ margin: '0 0 0.75rem' }}>Recent account activity</h3>
-                      {userActivity.signIns.length === 0 ? <p style={{ color: 'var(--color-text-muted)', margin: 0 }}>No sign-in activity recorded yet.</p> : (
-                        <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--color-text-muted)' }}>
-                          {userActivity.signIns.map((entry) => <li key={entry.id} style={{ padding: '0.2rem 0' }}>Signed in {formatDate(entry.signed_in_at)}</li>)}
-                        </ul>
-                      )}
                     </section>
                   </div>
                 </>

@@ -391,9 +391,9 @@ export const getAdminUsers = async (offset = 0) => {
 export const getAdminUserActivity = async (userId) => {
   if (!isLiveSupabase) {
     requireProductionBackend();
-    return { createdEvents: [], attendedEvents: [], signIns: [] };
+    return { createdEvents: [], attendedEvents: [] };
   }
-  const [createdEventsResult, attendanceResult, signInsResult] = await Promise.all([
+  const [createdEventsResult, attendanceResult] = await Promise.all([
     supabase
       .from('events')
       .select('id,event_code,title,organization_name,venue,event_date,start_time,status,payment_status,created_at')
@@ -404,16 +404,9 @@ export const getAdminUserActivity = async (userId) => {
       .select('id,event_id,time_in,time_out,scanner_device')
       .eq('participant_id', userId)
       .order('time_in', { ascending: false }),
-    supabase
-      .from('sign_in_logs')
-      .select('id,signed_in_at')
-      .eq('user_id', userId)
-      .order('signed_in_at', { ascending: false })
-      .limit(20),
   ]);
   if (createdEventsResult.error) throw createdEventsResult.error;
   if (attendanceResult.error) throw attendanceResult.error;
-  if (signInsResult.error) throw signInsResult.error;
 
   const attendance = attendanceResult.data ?? [];
   const eventIds = [...new Set(attendance.map((record) => record.event_id))];
@@ -433,7 +426,6 @@ export const getAdminUserActivity = async (userId) => {
       ...record,
       event: attendedEventById.get(record.event_id) ?? null,
     })),
-    signIns: signInsResult.data ?? [],
   };
 };
 
