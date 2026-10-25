@@ -336,6 +336,100 @@ button, input, select, textarea {
   box-sizing: border-box;
 }
 
+.dashboard-home-content {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100%;
+}
+
+.home-event-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 430px;
+  overflow: hidden;
+  border-radius: 24px;
+  isolation: isolate;
+  background: #10234d;
+  color: #fff;
+}
+
+.home-event-hero::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 20, 48, 0.88) 0%, rgba(15, 35, 78, 0.74) 42%, rgba(15, 35, 78, 0.08) 100%),
+    linear-gradient(0deg, rgba(8, 20, 48, 0.18), transparent 45%);
+  content: '';
+}
+
+.home-event-hero-image {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 58%;
+}
+
+.home-event-hero-content {
+  position: relative;
+  z-index: 2;
+  width: min(600px, 75%);
+  padding: clamp(2rem, 5vw, 4.25rem);
+}
+
+.home-event-hero-eyebrow {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #fde68a;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.home-event-hero h1 {
+  max-width: 560px;
+  color: #fff;
+  font-size: clamp(2rem, 4.2vw, 3.65rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.home-event-hero p {
+  max-width: 420px;
+  margin-top: 1rem;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: clamp(0.95rem, 1.3vw, 1.08rem);
+  line-height: 1.65;
+}
+
+.home-event-hero-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.6rem;
+  padding: 0.8rem 1.15rem;
+  border: 0;
+  border-radius: 10px;
+  background: #fbbf24;
+  color: #172554;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.home-event-hero-button:hover {
+  transform: translateY(-1px);
+  background: #fcd34d;
+}
+
 /* ─── Flat Dashboard Layout Utilities ─── */
 .flat-qr-section {
   display: grid;
@@ -945,6 +1039,35 @@ button, input, select, textarea {
 
   .dashboard-tab-content {
     padding: 1.15rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .dashboard-home-content {
+    min-height: 0;
+  }
+
+  .home-event-hero {
+    min-height: min(500px, calc(100dvh - 170px));
+    border-radius: 18px;
+  }
+
+  .home-event-hero::after {
+    background:
+      linear-gradient(0deg, rgba(8, 20, 48, 0.92) 0%, rgba(15, 35, 78, 0.58) 55%, rgba(15, 35, 78, 0.08) 100%);
+  }
+
+  .home-event-hero-image {
+    object-position: 58% center;
+  }
+
+  .home-event-hero-content {
+    width: 100%;
+    padding: 1.5rem;
+    align-self: flex-end;
+  }
+
+  .home-event-hero h1 {
+    max-width: 430px;
+    font-size: clamp(2rem, 9vw, 2.8rem);
   }
 
   .dashboard-tab-content-profile {

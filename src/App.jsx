@@ -16,7 +16,6 @@ import {
 
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const AuthScreen = lazy(() => import('./components/AuthScreen'));
-const PersonalQRPass = lazy(() => import('./components/PersonalQRPass'));
 const EventConsole = lazy(() => import('./components/EventConsole'));
 const StartEventModal = lazy(() => import('./components/StartEventModal'));
 const ParticipantScannerModal = lazy(() => import('./components/ParticipantScannerModal'));
@@ -38,6 +37,7 @@ import {
   ChevronRight,
   UserCog
 } from 'lucide-react';
+import campusEventImage from './assets/campus-event.jpg';
 
 const loadingFallback = (
   <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-bg-base)' }}>
@@ -366,15 +366,22 @@ export default function App() {
             TAB: HOME
             ══════════════════════════════════════════ */}
         {activeTab === 'home' && (
-          <div className="dashboard-tab-content animate-fade-in">
-            {/* Personal QR Pass with Edit Profile handler */}
-            <PersonalQRPass 
-              user={currentUser} 
-              onNavigateToProfile={() => {
-                setProfileView('profile');
-                setActiveTab('profile');
-              }}
-            />
+          <div className="dashboard-tab-content dashboard-home-content animate-fade-in">
+            <section className="home-event-hero">
+              <img
+                className="home-event-hero-image"
+                src={campusEventImage}
+                alt="Students gathered at a campus event"
+              />
+              <div className="home-event-hero-content">
+                <span className="home-event-hero-eyebrow">CAMPUS EVENTS, MADE SIMPLE</span>
+                <h1>Make every campus moment count.</h1>
+                <p>Find your next event, bring your QR pass, and check in with ease.</p>
+                <button className="home-event-hero-button" onClick={() => setActiveTab('events')}>
+                  Explore My Events <ChevronRight size={18} />
+                </button>
+              </div>
+            </section>
           </div>
         )}
 
