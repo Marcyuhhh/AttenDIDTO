@@ -12,7 +12,6 @@ import {
   ChevronRight,
   ArrowLeft,
   Trash2, 
-  ShieldCheck,
   LogOut,
 } from 'lucide-react';
 import { getInitials, updateProfile } from '../supabaseClient';
@@ -110,9 +109,6 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
 
   const profilePageHeading = (
     <div style={{ marginBottom: '1.5rem' }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-primary)', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.2rem' }}>
-        <ShieldCheck size={16} /> <span>Student Identity & Account</span>
-      </div>
       <h1 style={{ fontSize: '1.75rem', color: 'var(--color-text-main)', margin: 0 }}>{view === 'settings' ? 'Settings' : view === 'edit' ? 'Edit Profile' : 'Profile'}</h1>
     </div>
   );
@@ -177,7 +173,6 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
           <ArrowLeft size={17} /> Back to Profile
         </button>
         <div className="profile-page-heading">
-          <div className="profile-eyebrow"><ShieldCheck size={16} /> Student Identity</div>
           <h1>My QR Pass</h1>
           <p>Show this pass to an event scanner to check in.</p>
         </div>
@@ -209,26 +204,10 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
   }
 
   return (
-    <div className="profile-page-view animate-fade-in" style={{ paddingBottom: '3rem' }}>
-      
-      {/* Page Title & Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-primary)', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.2rem' }}>
-            <ShieldCheck size={16} />
-            <span>Student Identity & Account</span>
-          </div>
-          <h1 style={{ fontSize: '1.75rem', color: 'var(--color-text-main)', margin: 0 }}>
-            Profile
-          </h1>
-        </div>
-
-      </div>
-
+    <div className="profile-page-view animate-fade-in">
       {successMessage && <div role="status" className="profile-success-message">{successMessage}</div>}
 
-      {/* Main Profile Info Section (Flat layout) */}
-      <div className="profile-content-grid profile-summary-card">
+      <div className="profile-content-grid">
         
         {/* Left: Identity & Academic Details */}
         <div className="profile-main-details">

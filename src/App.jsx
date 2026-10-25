@@ -33,7 +33,6 @@ import {
   LogOut, 
   Trash2,
   PlusCircle, 
-  ShieldCheck, 
   ArrowLeft, 
   Users, 
   ChevronRight,
@@ -212,11 +211,6 @@ export default function App() {
     return attendanceRecords.filter((record) => record.event_id === eventId).length;
   }, [attendanceRecords]);
 
-  const userFirstName = useMemo(
-    () => currentUser?.full_name?.split(' ')[0] || '',
-    [currentUser]
-  );
-
   const sidebarTabs = useMemo(
     () => [
       { id: 'home', label: 'Home', icon: <Home size={20} /> },
@@ -373,20 +367,6 @@ export default function App() {
             ══════════════════════════════════════════ */}
         {activeTab === 'home' && (
           <div className="dashboard-tab-content animate-fade-in">
-            {/* Greeting Header */}
-            <div style={{ marginBottom: '1.75rem' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-primary)', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.2rem' }}>
-                <ShieldCheck size={16} />
-                <span>Cagayan de Oro Campus Network</span>
-              </div>
-              <h1 style={{ fontSize: '1.75rem', color: 'var(--color-text-main)' }}>
-                Welcome back, <span style={{ color: 'var(--color-primary)' }}>{userFirstName}</span>!
-              </h1>
-              <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-                {currentUser.school} • {currentUser.course} ({currentUser.year_level})
-              </p>
-            </div>
-
             {/* Personal QR Pass with Edit Profile handler */}
             <PersonalQRPass 
               user={currentUser} 
@@ -531,7 +511,7 @@ export default function App() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="dashboard-tab-content animate-fade-in">
+          <div className={`dashboard-tab-content animate-fade-in ${profileView === 'profile' ? 'dashboard-tab-content-profile' : ''}`}>
             <ProfileView
               user={currentUser}
               view={profileView}
