@@ -87,8 +87,28 @@ The admin dashboard role is read from the protected profile row. Never expose a 
 
 ### 3. Configure payment notification email
 
-1. Verify a sending domain in [Resend](https://resend.com) and create an API key.
-2. Add the GitHub Actions secrets listed below. The approved Supabase workflow sets the Edge Function secrets and deploys the function.
+The notification uses the Gmail API, so the app can remain hosted on its Vercel URL without owning a custom domain. The Gmail account authorized below is the sender; `ADMIN_EMAIL` is the destination inbox. Changing the destination later only requires updating that Supabase secret.
+
+1. In Google Cloud Console, create a project, enable the **Gmail API**, and configure the OAuth consent screen. Add the Gmail sender account as a test user if the app is in testing mode.
+2. Create a **Web application** OAuth client. Add `https://developers.google.com/oauthplayground` as an authorized redirect URI.
+3. Open [Google OAuth 2.0 Playground](https://developers.google.com/oauthplayground/), select its settings, enable **Use your own OAuth credentials**, and enter the client ID and client secret. Authorize the scope `https://www.googleapis.com/auth/gmail.send` with the Gmail account that should send notifications. Exchange the authorization code for tokens and copy the refresh token. Never put these credentials in the frontend or commit them.
+4. In Supabase Dashboard, open **Edge Functions → Secrets** and set:
+   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the OAuth client.
+   - `GOOGLE_REFRESH_TOKEN` from OAuth Playground.
+   - `GMAIL_SENDER_EMAIL` to the Gmail account that granted authorization.
+   - `ADMIN_EMAIL` to the notification recipient, currently `eurese.marc.ariel@gmail.com`.
+   - `APP_ORIGIN` to the exact Vercel app origin, for example `https://your-app.vercel.app`.
+5. Deploy the updated Edge Function directly from the project directory using the Supabase CLI:
+
+   ```powershell
+   supabase login
+   supabase link --project-ref YOUR_PROJECT_REF
+   supabase functions deploy event-payment-notification --project-ref YOUR_PROJECT_REF
+   ```
+
+   No GitHub workflow or Vercel redeployment is required for this email change. The browser already invokes the Supabase function when a payment reference is submitted.
+
+Google OAuth refresh tokens for an External app left in Testing status expire after seven days for these scopes. For long-running use, review Google's publishing and verification requirements; otherwise you will need to authorize again and replace the refresh-token secret. The function requests only the Gmail send scope.
 
 The dashboard inbox is backed by the database; email is a notification. Failed email delivery is shown in the app and does not undo a saved event request or review decision.
 
@@ -103,7 +123,7 @@ The dashboard inbox is backed by the database; email is a notification. Failed e
 
 2. Select **Vite**, use `npm run build` as the build command and `dist` as the output directory.
 3. Add the GitHub Actions secrets below. Pushes to `main` then run the frontend deployment workflow.
-4. Add the resulting Vercel URL to Supabase's allowed redirect URLs and set `APP_ORIGIN` to that exact URL in GitHub Actions secrets.
+4. Add the resulting Vercel URL to Supabase's allowed redirect URLs and set `APP_ORIGIN` to that exact URL in **Supabase → Edge Functions → Secrets**.
 5. Test with a normal account: submit an event and payment reference, confirm it appears pending and cannot open scanning, review it as the admin, then confirm approval enables scanning and cancellation removes the event from My Events.
 
 ### 5. GitHub Actions setup
@@ -112,11 +132,12 @@ Create these repository secrets under **GitHub → Settings → Secrets and vari
 
 - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
 - `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_SERVICE_ROLE_KEY`
-- `RESEND_API_KEY`, `ADMIN_EMAIL`, `NOTIFICATION_FROM_EMAIL`, `APP_ORIGIN`
+
+Gmail notification secrets are configured directly in **Supabase → Edge Functions → Secrets** as described above; they are not required in GitHub or Vercel.
 
 Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as Vercel project environment variables; the workflow pulls them from Vercel during its production build. The Vercel token/project identifiers can be obtained by linking the project with the Vercel CLI and checking `.vercel/project.json` (do not commit that file).
 
-Create a GitHub environment named **production** and configure **Required reviewers**. The Supabase workflow is started manually from **Actions → Deploy Supabase production changes → Run workflow**, and requires the confirmation checkbox plus approval for that environment. It applies committed migrations and deploys the notification and self-account-deletion functions. `SUPABASE_SERVICE_ROLE_KEY` is stored only as a Supabase Edge Function secret and must never be added to Vercel or any `VITE_` variable. `APP_ORIGIN` must exactly match the browser origin, for example `https://attendidto.vercel.app`; for additional preview URLs, enter comma-separated origins with no trailing slash. Run this Supabase workflow after adding or changing the secrets and before testing account deletion. If Vercel's native Git integration also deploys production on pushes, disable one of the two deployment paths to avoid duplicate deployments.
+Create a GitHub environment named **production** and configure **Required reviewers**. The optional Supabase workflow is started manually from **Actions → Deploy Supabase production changes → Run workflow**, and requires the confirmation checkbox plus approval for that environment. It applies committed migrations and deploys the notification and self-account-deletion functions. Gmail notification secrets are still configured directly in Supabase and are not copied from GitHub. `SUPABASE_SERVICE_ROLE_KEY` must never be added to Vercel or any `VITE_` variable. `APP_ORIGIN` must exactly match the browser origin, for example `https://attendidto.vercel.app`, and is set in Supabase Edge Function secrets. Run the workflow before testing account deletion. If Vercel's native Git integration also deploys production on pushes, disable one of the two deployment paths to avoid duplicate deployments.
 
 The app intentionally fails closed in a production build without Supabase configuration. Local development without Supabase remains a demo using browser storage; it does not provide cross-device accounts, admin review, or production payment verification. Payment references are manually reviewed, not verified automatically against a payment provider.
 
