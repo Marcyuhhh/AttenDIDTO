@@ -38,12 +38,35 @@ import {
   UserCog
 } from 'lucide-react';
 import campusEventImage from './assets/campus-event.jpg';
+import campusStudentsImage from './assets/students-campus.jpg';
+import campusCommunityImage from './assets/campus-community.jpg';
 
 const loadingFallback = (
   <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-bg-base)' }}>
     <div style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Loading...</div>
   </div>
 );
+
+const homeInfoCards = [
+  {
+    image: campusEventImage,
+    alt: 'Students gathered at a campus event',
+    title: 'Make every campus moment count',
+    description: 'Keep campus seminars, workshops, and gatherings organized with simple digital attendance.',
+  },
+  {
+    image: campusStudentsImage,
+    alt: 'Students working together in a campus library',
+    title: 'Your pass, ready when you are',
+    description: 'Open your Profile to show your personal QR pass when you arrive at an event.',
+  },
+  {
+    image: campusCommunityImage,
+    alt: 'A group of students spending time together on campus',
+    title: 'Less paperwork, more participation',
+    description: 'Event organizers can scan attendees and keep check-ins together in one place.',
+  },
+];
 
 export default function App() {
   // View state: 'landing' | 'auth' | 'dashboard'
@@ -381,6 +404,17 @@ export default function App() {
                   Explore My Events <ChevronRight size={18} />
                 </button>
               </div>
+            </section>
+            <section className="home-info-feed" aria-label="Campus attendance information">
+              {homeInfoCards.map((card) => (
+                <article className="home-info-card" key={card.title}>
+                  <img className="home-info-image" src={card.image} alt={card.alt} />
+                  <div className="home-info-copy">
+                    <h2>{card.title}</h2>
+                    <p>{card.description}</p>
+                  </div>
+                </article>
+              ))}
             </section>
           </div>
         )}

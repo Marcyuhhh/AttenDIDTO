@@ -338,7 +338,9 @@ button, input, select, textarea {
 
 .dashboard-home-content {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
   min-height: 100%;
 }
 
@@ -347,9 +349,9 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 430px;
+  min-height: 340px;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 22px;
   isolation: isolate;
   background: #10234d;
   color: #fff;
@@ -379,7 +381,7 @@ button, input, select, textarea {
   position: relative;
   z-index: 2;
   width: min(600px, 75%);
-  padding: clamp(2rem, 5vw, 4.25rem);
+  padding: clamp(2rem, 5vw, 4rem);
 }
 
 .home-event-hero-eyebrow {
@@ -394,7 +396,7 @@ button, input, select, textarea {
 .home-event-hero h1 {
   max-width: 560px;
   color: #fff;
-  font-size: clamp(2rem, 4.2vw, 3.65rem);
+  font-size: clamp(2rem, 4.2vw, 3.4rem);
   line-height: 1.08;
   letter-spacing: -0.04em;
 }
@@ -412,7 +414,7 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  margin-top: 1.6rem;
+  margin-top: 1.4rem;
   padding: 0.8rem 1.15rem;
   border: 0;
   border-radius: 10px;
@@ -428,6 +430,46 @@ button, input, select, textarea {
 .home-event-hero-button:hover {
   transform: translateY(-1px);
   background: #fcd34d;
+}
+
+.home-info-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+  align-items: start;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.home-info-card {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid #e7eaf0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 9px rgba(15, 23, 42, 0.09);
+}
+
+.home-info-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.home-info-copy {
+  padding: 1rem 1.05rem 1.15rem;
+}
+
+.home-info-copy h2 {
+  font-size: 1.08rem;
+  line-height: 1.3;
+}
+
+.home-info-copy p {
+  margin-top: 0.45rem;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 /* ─── Flat Dashboard Layout Utilities ─── */
@@ -1046,7 +1088,7 @@ button, input, select, textarea {
   }
 
   .home-event-hero {
-    min-height: min(500px, calc(100dvh - 170px));
+    min-height: min(390px, calc(100dvh - 230px));
     border-radius: 18px;
   }
 
@@ -1068,6 +1110,19 @@ button, input, select, textarea {
   .home-event-hero h1 {
     max-width: 430px;
     font-size: clamp(2rem, 9vw, 2.8rem);
+  }
+
+  .home-info-feed {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .home-info-image {
+    aspect-ratio: 16 / 8.5;
+  }
+
+  .home-info-copy {
+    padding: 0.85rem 0.9rem 1rem;
   }
 
   .dashboard-tab-content-profile {
