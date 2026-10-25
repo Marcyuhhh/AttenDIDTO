@@ -3,6 +3,7 @@ import {
   initLocalData, 
   getAuthenticatedProfile,
   getCloudDashboardData,
+  getAllEvents,
   getAllAttendance,
   getAllProfiles,
   deleteOwnedEvent,
@@ -285,6 +286,13 @@ export default function App() {
     <Suspense fallback={loadingFallback}>
     <div className="dashboard-shell">
 
+      <header className="mobile-dashboard-header">
+        <div className="logo-badge mobile-dashboard-logo">
+          <QrCode size={18} color="#ffffff" strokeWidth={2.5} />
+        </div>
+        <div className="logo-text mobile-dashboard-wordmark">attend<span>IDto</span></div>
+      </header>
+
       {/* ─── LEFT SIDEBAR ─── */}
       <aside className="sidebar">
         {/* Sidebar Brand */}
@@ -337,6 +345,7 @@ export default function App() {
               onClick={() => {
                 setActiveTab(tab.id);
                 setSelectedEventId(null);
+                if (tab.id === 'profile') setProfileView('profile');
               }}
               aria-label={tab.label}
             >

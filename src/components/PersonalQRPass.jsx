@@ -1,18 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Copy, Check } from 'lucide-react';
 import { getInitials } from '../supabaseClient';
 
 export default function PersonalQRPass({ user, onNavigateToProfile }) {
-  const [copied, setCopied] = useState(false);
-
   if (!user) return null;
-
-  const handleCopyCode = () => {
-    navigator.clipboard?.writeText(user.qr_pass_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="flat-qr-section">
@@ -55,17 +46,9 @@ export default function PersonalQRPass({ user, onNavigateToProfile }) {
           </div>
         </div>
 
-        {/* Quick hint to profile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.84rem', color: 'var(--color-text-muted)' }}>
-          <span>To edit profile details, save your pass to photos, or manage account settings, select</span>
-          <button 
-            onClick={onNavigateToProfile}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-primary)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            Profile
-          </button>
-          <span>in the sidebar.</span>
-        </div>
+        <button className="home-profile-link" onClick={onNavigateToProfile}>
+          Manage your profile, QR pass, and account settings
+        </button>
       </div>
 
       {/* Right Column: Flat QR Code Display */}
@@ -88,31 +71,8 @@ export default function PersonalQRPass({ user, onNavigateToProfile }) {
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
-          <code style={{ fontSize: '0.82rem', background: '#f1f5f9', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-sm)', color: '#334155', fontWeight: 700, letterSpacing: '0.04em' }}>
-            {user.qr_pass_code}
-          </code>
-          <button
-            onClick={handleCopyCode}
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              cursor: 'pointer', 
-              color: copied ? 'var(--color-success)' : 'var(--color-primary)', 
-              fontSize: '0.78rem', 
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '3px'
-            }}
-            title="Copy QR token"
-          >
-            {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy Code</>}
-          </button>
-        </div>
-
         <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.5rem', maxWidth: '240px' }}>
-          Present this code at any campus event scanner station
+          Present this QR pass at any campus event scanner station
         </p>
       </div>
     </div>

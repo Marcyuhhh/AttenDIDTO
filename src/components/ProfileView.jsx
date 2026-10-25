@@ -8,9 +8,10 @@ import {
   Download, 
   UserCog, 
   Settings, 
+  QrCode,
+  ChevronRight,
+  ArrowLeft,
   Trash2, 
-  Copy, 
-  Check, 
   ShieldCheck,
   LogOut,
 } from 'lucide-react';
@@ -18,7 +19,6 @@ import { getInitials, updateProfile } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
 export default function ProfileView({ user, view = 'profile', onViewChange, onOpenEditProfile, onSaveProfile, onDeleteAccount, onLogOut }) {
-  const [copied, setCopied] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,12 +33,6 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
   });
 
   if (!user) return null;
-
-  const handleCopyCode = () => {
-    navigator.clipboard?.writeText(user.qr_pass_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleDownloadPass = () => {
     const svg = document.getElementById('profile-qr-svg');
@@ -72,10 +66,6 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
         // Draw QR
         ctx.drawImage(img, 30, 70);
 
-        // Token code
-        ctx.fillStyle = '#1e40af';
-        ctx.font = 'bold 13px monospace';
-        ctx.fillText(user.qr_pass_code, canvas.width / 2, canvas.height - 24);
       }
       const pngFile = canvas.toDataURL('image/png');
       const downloadLink = document.createElement('a');
@@ -180,6 +170,44 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
     );
   }
 
+  if (view === 'qr') {
+    return (
+      <div className="profile-page-view animate-fade-in">
+        <button className="btn btn-ghost profile-back-button" onClick={() => onViewChange?.('profile')}>
+          <ArrowLeft size={17} /> Back to Profile
+        </button>
+        <div className="profile-page-heading">
+          <div className="profile-eyebrow"><ShieldCheck size={16} /> Student Identity</div>
+          <h1>My QR Pass</h1>
+          <p>Show this pass to an event scanner to check in.</p>
+        </div>
+        <section className="profile-qr-card">
+          <div className="profile-qr-identity">
+            <div className="avatar-initials profile-avatar">{getInitials(user.full_name)}</div>
+            <div>
+              <h2>{user.full_name}</h2>
+              <p>{user.school}</p>
+            </div>
+          </div>
+          <div className="profile-qr-code">
+            <QRCodeSVG
+              id="profile-qr-svg"
+              value={user.qr_pass_code}
+              size={220}
+              level="H"
+              includeMargin={false}
+              fgColor="#0f172a"
+            />
+          </div>
+          <p className="profile-qr-help">Your private pass code is hidden. Keep this QR code for your own use.</p>
+          <button className="btn btn-primary profile-qr-download" onClick={handleDownloadPass}>
+            <Download size={17} /> Save Pass to Photos
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="profile-page-view animate-fade-in" style={{ paddingBottom: '3rem' }}>
       
@@ -195,73 +223,35 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
           </h1>
         </div>
 
-        {/* Action Buttons in Header: Edit Profile, Save Pass to Photos, Settings */}
-        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
-          <button 
-            id="btn-profile-edit"
-            className="btn btn-secondary" 
-            style={{ padding: '0.65rem 1.15rem', fontSize: '0.88rem' }}
-            onClick={onOpenEditProfile}
-          >
-            <UserCog size={16} />
-            <span>Edit Profile</span>
-          </button>
-
-          <button 
-            id="btn-profile-save-photo"
-            className="btn btn-primary" 
-            style={{ padding: '0.65rem 1.25rem', fontSize: '0.88rem' }}
-            onClick={handleDownloadPass}
-          >
-            <Download size={16} />
-            <span>Save Pass to Photos</span>
-          </button>
-
-          <button 
-            id="btn-profile-settings"
-            className="btn btn-ghost"
-            style={{ padding: '0.65rem 1rem', fontSize: '0.88rem' }}
-            onClick={() => onViewChange?.('settings')}
-            title="Account Settings"
-          >
-            <Settings size={16} />
-            <span>Settings</span>
-          </button>
-        </div>
       </div>
 
-      {successMessage && <div role="status" style={{ marginBottom: '1rem', color: '#166534' }}>{successMessage}</div>}
+      {successMessage && <div role="status" className="profile-success-message">{successMessage}</div>}
 
       {/* Main Profile Info Section (Flat layout) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2.5rem' }}>
+      <div className="profile-content-grid profile-summary-card">
         
         {/* Left: Identity & Academic Details */}
-        <div>
+        <div className="profile-main-details">
           {/* Identity Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.75rem' }}>
-            <div 
-              className="avatar-initials" 
-              style={{ width: '72px', height: '72px', fontSize: '1.65rem', background: '#1e40af' }}
-            >
+          <div className="profile-identity">
+            <div className="avatar-initials profile-avatar">
               {getInitials(user.full_name)}
             </div>
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-main)', marginBottom: '0.15rem' }}>
-                {user.full_name}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-text-muted)', fontSize: '0.88rem' }}>
+            <div className="profile-identity-copy">
+              <h2>{user.full_name}</h2>
+              <div className="profile-email">
                 <Mail size={14} />
                 <span>{user.email}</span>
               </div>
-              <div style={{ fontSize: '0.84rem', color: 'var(--color-primary)', fontWeight: 600, marginTop: '0.2rem' }}>
+              <div className="profile-school">
                 {user.school}
               </div>
             </div>
           </div>
 
           {/* Academic Info Grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)', padding: '1.25rem 0' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+          <div className="profile-academic-list">
+            <div className="profile-academic-item">
               <div style={{ padding: '8px', background: '#eff6ff', borderRadius: '8px', color: '#1e40af', marginTop: '2px' }}>
                 <GraduationCap size={18} />
               </div>
@@ -275,7 +265,7 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            <div className="profile-academic-item">
               <div style={{ padding: '8px', background: '#eff6ff', borderRadius: '8px', color: '#1e40af', marginTop: '2px' }}>
                 <BookOpen size={18} />
               </div>
@@ -289,7 +279,7 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            <div className="profile-academic-item">
               <div style={{ padding: '8px', background: '#eff6ff', borderRadius: '8px', color: '#1e40af', marginTop: '2px' }}>
                 <Building2 size={18} />
               </div>
@@ -304,61 +294,27 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
             </div>
           </div>
 
-          <div style={{ marginTop: '1.25rem', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-            Student profile registered on {user.created_at ? new Date(user.created_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Campus System'}
-          </div>
-        </div>
-
-        {/* Right: Student's QR Pass preview & Token code */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>
-            Official Campus Pass QR Code
-          </div>
-
-          <div 
-            style={{ 
-              padding: '16px', 
-              background: '#ffffff', 
-              border: '2px solid var(--color-border)', 
-              borderRadius: 'var(--radius-lg)',
-            }} 
-          >
-            <QRCodeSVG
-              id="profile-qr-svg"
-              value={user.qr_pass_code}
-              size={190}
-              level="H"
-              includeMargin={false}
-              fgColor="#0f172a"
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
-            <code style={{ fontSize: '0.84rem', background: '#f1f5f9', padding: '0.35rem 0.85rem', borderRadius: 'var(--radius-sm)', color: '#334155', fontWeight: 700, letterSpacing: '0.04em' }}>
-              {user.qr_pass_code}
-            </code>
-            <button
-              onClick={handleCopyCode}
-              style={{ 
-                background: 'none', 
-                border: 'none', 
-                cursor: 'pointer', 
-                color: copied ? 'var(--color-success)' : 'var(--color-primary)', 
-                fontSize: '0.8rem', 
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px'
-              }}
-              title="Copy QR token"
-            >
-              {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+          <div className="profile-action-list" aria-label="Profile actions">
+            <button className="profile-action" onClick={onOpenEditProfile}>
+              <span className="profile-action-icon"><UserCog size={19} /></span>
+              <span><strong>Edit Profile</strong><small>Update your academic details</small></span>
+              <ChevronRight size={19} />
+            </button>
+            <button className="profile-action" onClick={() => onViewChange?.('qr')}>
+              <span className="profile-action-icon"><QrCode size={19} /></span>
+              <span><strong>Show QR Code</strong><small>Open your private attendance pass</small></span>
+              <ChevronRight size={19} />
+            </button>
+            <button className="profile-action" onClick={() => onViewChange?.('settings')}>
+              <span className="profile-action-icon"><Settings size={19} /></span>
+              <span><strong>Settings</strong><small>Sign out or manage your account</small></span>
+              <ChevronRight size={19} />
             </button>
           </div>
 
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.65rem', maxWidth: '260px' }}>
-            Scan at event doorways to instantly register attendance without revealing ID numbers.
-          </p>
+          <div style={{ marginTop: '1.25rem', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+            Student profile registered on {user.created_at ? new Date(user.created_at).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Campus System'}
+          </div>
         </div>
 
       </div>
