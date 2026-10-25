@@ -374,18 +374,67 @@ export const updateProfile = async (userId, updatedFields) => {
   return { ...data, email: user?.email };
 };
 
-export const getAdminSignInLogs = async (offset = 0) => {
+export const getAdminUsers = async (offset = 0) => {
   if (!isLiveSupabase) {
     requireProductionBackend();
-    return [];
+    return { users: [], totalCount: 0 };
   }
-  const { data, error } = await supabase
-    .from('sign_in_logs')
-    .select('id,user_id,signed_in_at,profiles!sign_in_logs_user_id_fkey(full_name,email,school)')
-    .order('signed_in_at', { ascending: false })
+  const { data, count, error } = await supabase
+    .from('profiles')
+    .select('id,first_name,last_name,full_name,email,school,department,course,year_level,created_at', { count: 'exact' })
+    .order('created_at', { ascending: false })
     .range(offset, offset + 99);
   if (error) throw error;
-  return data ?? [];
+  return { users: data ?? [], totalCount: count ?? 0 };
+};
+
+export const getAdminUserActivity = async (userId) => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    return { createdEvents: [], attendedEvents: [], signIns: [] };
+  }
+  const [createdEventsResult, attendanceResult, signInsResult] = await Promise.all([
+    supabase
+      .from('events')
+      .select('id,event_code,title,organization_name,venue,event_date,start_time,status,payment_status,created_at')
+      .eq('host_user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('attendance_records')
+      .select('id,event_id,time_in,time_out,scanner_device')
+      .eq('participant_id', userId)
+      .order('time_in', { ascending: false }),
+    supabase
+      .from('sign_in_logs')
+      .select('id,signed_in_at')
+      .eq('user_id', userId)
+      .order('signed_in_at', { ascending: false })
+      .limit(20),
+  ]);
+  if (createdEventsResult.error) throw createdEventsResult.error;
+  if (attendanceResult.error) throw attendanceResult.error;
+  if (signInsResult.error) throw signInsResult.error;
+
+  const attendance = attendanceResult.data ?? [];
+  const eventIds = [...new Set(attendance.map((record) => record.event_id))];
+  let attendedEventById = new Map();
+  if (eventIds.length > 0) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id,event_code,title,organization_name,venue,event_date,start_time,status')
+      .in('id', eventIds);
+    if (error) throw error;
+    attendedEventById = new Map((data ?? []).map((event) => [event.id, event]));
+  }
+
+  return {
+    createdEvents: createdEventsResult.data ?? [],
+    attendedEvents: attendance.map((record) => ({
+      ...record,
+      event: attendedEventById.get(record.event_id) ?? null,
+    })),
+    signIns: signInsResult.data ?? [],
+  };
 };
 
 export const recordAttendance = async ({ event_id, participant_id, participant_qr, scanned_by_user_id, scanner_device = 'Web Camera' }) => {
