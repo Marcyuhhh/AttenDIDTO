@@ -402,6 +402,14 @@ export const recordAttendance = async ({ event_id, participant_id, participant_q
         message: error.message,
       };
     }
+    if (!data.success) {
+      return {
+        success: false,
+        isDuplicate: Boolean(data.isDuplicate),
+        existingRecord: data.record,
+        message: data.message,
+      };
+    }
     return { success: true, isDuplicate: false, record: data.record, participant: data.participant };
   }
 
@@ -855,4 +863,3 @@ export const getAllAttendance = () => {
     return [];
   }
 };
-
