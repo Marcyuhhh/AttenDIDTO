@@ -1377,6 +1377,233 @@ button, input, select, textarea {
 }
 
 /* Form Controls */
+.auth-page {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  height: 100svh;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-base);
+}
+
+.auth-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+  background: #fff;
+}
+
+.auth-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.auth-shell {
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+  transition: max-width 0.2s ease;
+}
+
+.auth-shell-signup {
+  max-width: 460px;
+}
+
+.auth-card {
+  overflow: hidden;
+  max-height: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-xl);
+}
+
+.auth-card-heading {
+  padding: 1.2rem 1.5rem 0.8rem;
+  text-align: center;
+}
+
+.auth-card-heading h2 {
+  margin-bottom: 0.25rem;
+  color: var(--color-text-main);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.auth-card-description {
+  max-width: 340px;
+  margin: 0 auto;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.auth-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: #f1f5f9;
+}
+
+.auth-error-message {
+  margin: 0 1.5rem 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.auth-login-form {
+  padding: 0 1.5rem 1.4rem;
+}
+
+.signup-form {
+  padding: 0 1.5rem 1rem;
+}
+
+.signup-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.signup-step-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signup-step-heading strong {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.signup-fields {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.signup-name-row,
+.signup-academic-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.signup-fields .form-group {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.signup-fields .form-label {
+  margin-bottom: 0.22rem;
+  font-size: 0.78rem;
+}
+
+.signup-fields .form-input,
+.signup-fields .form-select {
+  min-width: 0;
+  height: 42px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+
+.signup-input-with-icon {
+  position: relative;
+}
+
+.signup-input-with-icon > svg {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 11px;
+  color: #94a3b8;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.signup-input-with-icon .form-input {
+  padding-right: 2.5rem;
+  padding-left: 2.2rem;
+}
+
+.signup-input-with-icon > button {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  display: grid;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.signup-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.8rem;
+}
+
+.signup-primary-action {
+  min-width: 120px;
+  padding: 0.58rem 1rem;
+}
+
+.signup-switch-mode {
+  margin-top: 0.65rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.signup-switch-mode button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .form-group {
   margin-bottom: 1.1rem;
 }
@@ -1404,6 +1631,224 @@ button, input, select, textarea {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+@media (max-width: 768px) {
+  .auth-header {
+    padding: 0.7rem 1rem;
+  }
+
+  .auth-header .logo-badge {
+    width: 36px;
+    height: 36px;
+  }
+
+  .auth-header .logo-badge svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .auth-header .logo-text {
+    font-size: 1.2rem;
+  }
+
+  .auth-header .btn {
+    padding: 0.45rem 0.55rem;
+    font-size: 0.78rem !important;
+  }
+
+  .auth-main {
+    padding: 0.7rem;
+  }
+
+  .auth-shell-signup {
+    max-width: 360px;
+  }
+
+  .auth-card-heading {
+    padding: 0.75rem 0.9rem 0.55rem;
+  }
+
+  .auth-card-heading h2 {
+    font-size: 1.25rem !important;
+  }
+
+  .auth-mode-tabs {
+    margin-top: 0.7rem;
+  }
+
+  .auth-login-form {
+    padding: 0 1rem 1rem;
+  }
+
+  .signup-form {
+    padding: 0 0.9rem 0.65rem;
+  }
+
+  .auth-error-message {
+    margin-right: 1rem;
+    margin-left: 1rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .auth-header {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .auth-header > div:first-child {
+    gap: 0.5rem !important;
+  }
+
+  .auth-header > div:first-child > div:last-child > div:last-child {
+    font-size: 0.58rem !important;
+  }
+
+  .auth-main {
+    padding: 0.45rem;
+  }
+
+  .auth-card {
+    border-radius: 16px;
+  }
+
+  .auth-card-heading {
+    padding: 0.6rem 0.7rem 0.45rem;
+  }
+
+  .auth-card-heading h2 {
+    font-size: 1.15rem !important;
+  }
+
+  .auth-card-description {
+    font-size: 0.76rem;
+  }
+
+  .signup-form {
+    padding: 0 0.7rem 0.55rem;
+  }
+
+  .signup-fields {
+    gap: 0.35rem;
+  }
+
+  .signup-name-row,
+  .signup-academic-row {
+    gap: 0.5rem;
+  }
+
+  .signup-fields .form-label {
+    font-size: 0.72rem;
+  }
+
+  .signup-fields .form-input,
+  .signup-fields .form-select {
+    height: 37px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .signup-actions {
+    margin-top: 0.5rem;
+  }
+
+  .signup-primary-action {
+    min-width: 110px;
+    padding: 0.5rem 0.9rem;
+  }
+}
+
+@media (max-height: 740px) {
+  .auth-header {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .auth-main {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .auth-card-heading {
+    padding-top: 0.65rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .signup-fields {
+    gap: 0.25rem;
+  }
+
+  .signup-fields .form-input,
+  .signup-fields .form-select {
+    height: 37px;
+  }
+
+  .signup-step-heading {
+    margin-bottom: 0.35rem;
+  }
+
+  .signup-actions {
+    margin-top: 0.55rem;
+  }
+}
+
+@media (max-height: 600px) {
+  .auth-header .logo-badge {
+    width: 32px;
+    height: 32px;
+  }
+
+  .auth-header .logo-badge svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .auth-card-heading {
+    padding-top: 0.4rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .auth-shell-signup .auth-card-description {
+    display: none;
+  }
+
+  .auth-shell-signup .auth-card-heading h2 {
+    font-size: 1.15rem !important;
+  }
+
+  .auth-mode-tabs {
+    margin-top: 0.35rem;
+  }
+
+  .signup-form {
+    padding-bottom: 0.45rem;
+  }
+
+  .signup-fields {
+    gap: 0.12rem;
+  }
+
+  .signup-fields .form-label {
+    margin-bottom: 0.1rem;
+    font-size: 0.68rem;
+  }
+
+  .signup-fields .form-input,
+  .signup-fields .form-select {
+    height: 34px;
+  }
+
+  .signup-step-heading {
+    margin-bottom: 0.25rem;
+  }
+
+  .signup-actions {
+    margin-top: 0.35rem;
+  }
+
+  .signup-switch-mode {
+    margin-top: 0.3rem;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
