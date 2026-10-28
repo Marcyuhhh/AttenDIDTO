@@ -194,7 +194,15 @@ export default function ProfileView({ user, view = 'profile', onViewChange, onOp
               fgColor="#0f172a"
             />
           </div>
-          <p className="profile-qr-help">Your private pass code is hidden. Keep this QR code for your own use.</p>
+          <div style={{ width: '100%', marginTop: '0.9rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
+              Unique pass code
+            </div>
+            <code style={{ display: 'inline-block', padding: '0.55rem 0.8rem', borderRadius: 'var(--radius-sm)', background: '#f1f5f9', color: 'var(--color-text-main)', fontSize: '0.9rem', fontWeight: 800, letterSpacing: '0.04em', wordBreak: 'break-word' }}>
+              {user.qr_pass_code}
+            </code>
+          </div>
+          <p className="profile-qr-help">Use this code when an event creator adds you as a co-scanner. Keep it private.</p>
           <button className="btn btn-primary profile-qr-download" onClick={handleDownloadPass}>
             <Download size={17} /> Save Pass to Photos
           </button>
