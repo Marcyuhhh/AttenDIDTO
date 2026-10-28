@@ -21,6 +21,7 @@ Deno.serve(async (request: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
   const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
   const googleRefreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
@@ -29,8 +30,17 @@ Deno.serve(async (request: Request) => {
   const configuredOrigin = Deno.env.get('APP_ORIGIN');
   const authorization = request.headers.get('Authorization');
 
-  if (!supabaseUrl || !anonKey || !googleClientId || !googleClientSecret
-      || !googleRefreshToken || !senderEmail || !configuredOrigin || !authorization) {
+  if (
+    !supabaseUrl ||
+    !anonKey ||
+    !serviceRoleKey ||
+    !googleClientId ||
+    !googleClientSecret ||
+    !googleRefreshToken ||
+    !senderEmail ||
+    !configuredOrigin ||
+    !authorization
+  ) {
     return json({ error: 'Notification service is not configured' }, 500);
   }
   if (request.headers.get('Origin') && request.headers.get('Origin') !== configuredOrigin) {
@@ -43,6 +53,13 @@ Deno.serve(async (request: Request) => {
   const supabase = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false },
+  });
+
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
   });
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return json({ error: 'Unauthorized' }, 401);
@@ -112,7 +129,7 @@ Deno.serve(async (request: Request) => {
       .maybeSingle();
     if (assignmentError || !assignment) return json({ error: 'Co-scanner assignment not found' }, 404);
 
-    const { data: scannerProfile, error: scannerError } = await supabase
+    const { data: scannerProfile, error: scannerError } = await adminClient
       .from('profiles')
       .select('email,full_name,school')
       .eq('id', payload.scannerUserId)
