@@ -30,13 +30,13 @@ Deno.serve(async (request: Request) => {
   const authorization = request.headers.get('Authorization');
 
   if (!supabaseUrl || !anonKey || !googleClientId || !googleClientSecret
-      || !googleRefreshToken || !adminEmail || !senderEmail || !configuredOrigin || !authorization) {
+      || !googleRefreshToken || !senderEmail || !configuredOrigin || !authorization) {
     return json({ error: 'Notification service is not configured' }, 500);
   }
   if (request.headers.get('Origin') && request.headers.get('Origin') !== configuredOrigin) {
     return json({ error: 'Origin not allowed' }, 403);
   }
-  if (!isValidEmail(adminEmail) || !isValidEmail(senderEmail)) {
+  if (!isValidEmail(senderEmail)) {
     return json({ error: 'Notification email address is invalid' }, 500);
   }
 
@@ -47,14 +47,17 @@ Deno.serve(async (request: Request) => {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return json({ error: 'Unauthorized' }, 401);
 
-  let payload: { eventId?: string; kind?: string };
+  let payload: { eventId?: string; kind?: string; scannerUserId?: string };
   try {
     payload = await request.json();
   } catch {
     return json({ error: 'Invalid request body' }, 400);
   }
-  if (!payload.eventId || !['submitted', 'reviewed'].includes(payload.kind ?? '')) {
+  if (!payload.eventId || !['submitted', 'reviewed', 'co_scanner_added'].includes(payload.kind ?? '')) {
     return json({ error: 'Invalid notification request' }, 400);
+  }
+  if (payload.kind === 'submitted' && (!adminEmail || !isValidEmail(adminEmail))) {
+    return json({ error: 'Notification email address is invalid' }, 500);
   }
 
   const { data: event, error: eventError } = await supabase
@@ -76,6 +79,9 @@ Deno.serve(async (request: Request) => {
   if (payload.kind === 'reviewed' && !callerIsAdmin) {
     return json({ error: 'Admin access required' }, 403);
   }
+  if (payload.kind === 'co_scanner_added' && event.host_user_id !== user.id) {
+    return json({ error: 'Only the event host can send a co-scanner notice' }, 403);
+  }
 
   const { data: hostProfile, error: hostError } = await supabase
     .from('profiles')
@@ -87,14 +93,36 @@ Deno.serve(async (request: Request) => {
   const submitted = payload.kind === 'submitted';
   const approved = event.payment_status === 'paid' && event.status === 'active';
   const eventCode = event.event_code ?? event.id;
-  const subject = submitted
+  let recipientEmail = submitted ? adminEmail : hostProfile.email;
+  let subject = submitted
     ? `Payment review requested: ${eventCode}`
     : `Event ${approved ? 'confirmed' : 'canceled'}: ${eventCode}`;
-  const recipientEmail = submitted ? adminEmail : hostProfile.email;
   const decisionText = approved ? 'confirmed' : 'canceled';
-  const html = submitted
+  let html = submitted
     ? `<h2>New payment review request</h2><p>A payment reference was submitted for <strong>${escapeHtml(event.title)}</strong>.</p><p><strong>Event:</strong> ${escapeHtml(eventCode)}</p><p><strong>Organizer:</strong> ${escapeHtml(hostProfile.full_name ?? '')}</p><p><strong>Email:</strong> ${escapeHtml(hostProfile.email)}</p><p><strong>School:</strong> ${escapeHtml(hostProfile.school ?? '')}</p><p><strong>Payment reference:</strong> ${escapeHtml(event.payment_reference ?? '')}</p><p><strong>Venue:</strong> ${escapeHtml(event.venue ?? '')}</p><p><strong>Date:</strong> ${escapeHtml(event.event_date ?? '')} at ${escapeHtml(event.start_time ?? '')}</p><p><a href="${escapeHtml(configuredOrigin)}">Open attendIDto to review this request</a></p>`
     : `<p>Hello ${escapeHtml(hostProfile.full_name ?? '')},</p><p>Your event <strong>${escapeHtml(event.title)}</strong> (${escapeHtml(eventCode)}) was ${decisionText} after payment review.</p>`;
+
+  if (payload.kind === 'co_scanner_added') {
+    if (!payload.scannerUserId) return json({ error: 'Co-scanner account is required' }, 400);
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('event_scanners')
+      .select('user_id')
+      .eq('event_id', event.id)
+      .eq('user_id', payload.scannerUserId)
+      .maybeSingle();
+    if (assignmentError || !assignment) return json({ error: 'Co-scanner assignment not found' }, 404);
+
+    const { data: scannerProfile, error: scannerError } = await supabase
+      .from('profiles')
+      .select('email,full_name,school')
+      .eq('id', payload.scannerUserId)
+      .maybeSingle();
+    if (scannerError || !scannerProfile?.email) return json({ error: 'Co-scanner email unavailable' }, 409);
+
+    recipientEmail = scannerProfile.email;
+    subject = `You have been added as a co-scanner: ${event.title}`;
+    html = `<h2>You have been added as a co-scanner</h2><p>Hello ${escapeHtml(scannerProfile.full_name ?? '')},</p><p>You can now scan attendance for <strong>${escapeHtml(event.title)}</strong>.</p><p><strong>Event:</strong> ${escapeHtml(eventCode)}</p><p><strong>Organizer:</strong> ${escapeHtml(hostProfile.full_name ?? '')}</p><p><strong>Venue:</strong> ${escapeHtml(event.venue ?? '')}</p><p><strong>Date:</strong> ${escapeHtml(event.event_date ?? '')} at ${escapeHtml(event.start_time ?? '')}</p><p>Sign in to attendIDto to open the event and use the participant scanner.</p><p><a href="${escapeHtml(configuredOrigin)}">Open attendIDto</a></p>`;
+  }
 
   if (!isValidEmail(recipientEmail)) return json({ error: 'Notification recipient email is invalid' }, 409);
   try {

@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Camera, Printer, CheckCircle2, Search, Calendar, MapPin } from 'lucide-react';
+import { Camera, Printer, CheckCircle2, Search, Calendar, MapPin, UserPlus } from 'lucide-react';
 import { getAllProfiles, getInitials } from '../supabaseClient';
 
 const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', '6th Year'];
 
-function EventConsole({ event, attendanceRecords, profiles = [], onOpenScanner, onOpenReport }) {
+function EventConsole({ event, currentUser, attendanceRecords, profiles = [], onOpenScanner, onOpenReport, onOpenCoScanners }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedYear, setSelectedYear] = useState('ALL');
@@ -87,6 +87,18 @@ function EventConsole({ event, attendanceRecords, profiles = [], onOpenScanner, 
             <Camera size={20} />
             <span>Sign in a Participant</span>
           </button>
+
+          {currentUser?.id === event.host_user_id && (
+            <button
+              id="btn-add-co-scanner"
+              className="btn btn-secondary"
+              onClick={onOpenCoScanners}
+              style={{ padding: '0.8rem 1.15rem', fontSize: '0.9rem' }}
+            >
+              <UserPlus size={18} />
+              <span>+ Co-scanner</span>
+            </button>
+          )}
 
           <button
             id="btn-open-report"

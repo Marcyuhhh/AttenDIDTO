@@ -27,6 +27,7 @@
 
 5. **Live Multi-Device Attendance Progress HUD:**
    - Real-time gauge tracking **Target Attendees vs Current Attendees vs Turnout %**.
+   - Event creators can assign and remove co-scanners using a person's unique QR pass code.
    - Multiple organizers can scan simultaneously at separate gates.
 
 6. **Automatic Organization & Print-Ready University Reports:**

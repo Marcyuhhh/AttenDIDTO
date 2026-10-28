@@ -28,6 +28,7 @@ export const STORAGE_KEYS = {
   ALL_PROFILES: 'attendidto_profiles',
   EVENTS: 'attendidto_events',
   ATTENDANCE: 'attendidto_attendance',
+  EVENT_SCANNERS: 'attendidto_event_scanners',
   PENDING_OTP: 'attendidto_pending_otp',
 };
 
@@ -143,6 +144,9 @@ export const initLocalData = () => {
   if (!localStorage.getItem(STORAGE_KEYS.ATTENDANCE)) {
     localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(SEED_ATTENDANCE));
   }
+  if (!localStorage.getItem(STORAGE_KEYS.EVENT_SCANNERS)) {
+    localStorage.setItem(STORAGE_KEYS.EVENT_SCANNERS, JSON.stringify([]));
+  }
 };
 
 // Real-time broadcast channel for cross-tab synchronization
@@ -229,18 +233,28 @@ export const getAuthenticatedProfile = async () => {
 export const getCloudDashboardData = async (profile) => {
   if (!isLiveSupabase) {
     requireProductionBackend();
-    const events = getAllEvents();
+    const assignedEventIds = (JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_SCANNERS)) || [])
+      .filter((scanner) => scanner.user_id === profile.id)
+      .map((scanner) => scanner.event_id);
+    const events = getAllEvents().filter((event) => event.host_user_id === profile.id || assignedEventIds.includes(event.id));
     const attendance = getAllAttendance();
     const historyEvents = events.filter((event) => attendance.some((record) => record.participant_id === profile.id && record.event_id === event.id));
     return { events, attendance, profiles: getAllProfiles(), historyEvents };
   }
-  const [{ data: events, error: eventsError }, { data: attendance, error: attendanceError }] = await Promise.all([
+  const [
+    { data: events, error: eventsError },
+    { data: attendance, error: attendanceError },
+    { data: assignedScanners, error: scannersError },
+  ] = await Promise.all([
     supabase.from('events').select('*').order('created_at', { ascending: false }),
     supabase.from('attendance_records').select('*').order('time_in', { ascending: false }),
+    supabase.from('event_scanners').select('event_id').eq('user_id', profile.id),
   ]);
   if (eventsError) throw eventsError;
   if (attendanceError) throw attendanceError;
-  const hostEvents = (events ?? []).filter((event) => event.host_user_id === profile.id);
+  if (scannersError) throw scannersError;
+  const assignedEventIds = new Set((assignedScanners ?? []).map((scanner) => scanner.event_id));
+  const hostEvents = (events ?? []).filter((event) => event.host_user_id === profile.id || assignedEventIds.has(event.id));
   const historyEventIds = [...new Set((attendance ?? [])
     .filter((record) => record.participant_id === profile.id)
     .map((record) => record.event_id))];
@@ -480,6 +494,98 @@ export const recordAttendance = async ({ event_id, participant_id, participant_q
   localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(records));
   broadcastEvent('ATTENDANCE_RECORDED', newRecord);
   return { success: true, isDuplicate: false, record: newRecord };
+};
+
+export const getEventScanners = async (eventId) => {
+  if (isLiveSupabase) {
+    const { data, error } = await supabase.rpc('get_event_scanners', {
+      target_event_id: eventId,
+    });
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  requireProductionBackend();
+  try {
+    const scanners = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_SCANNERS)) || [];
+    return scanners.filter((scanner) => scanner.event_id === eventId);
+  } catch {
+    return [];
+  }
+};
+
+export const addEventScanner = async (eventId, scannerCode) => {
+  if (isLiveSupabase) {
+    const { data, error } = await supabase.rpc('add_event_scanner', {
+      target_event_id: eventId,
+      scanner_qr: scannerCode,
+    });
+    if (error) throw error;
+    const { error: notificationError } = await supabase.functions.invoke('event-payment-notification', {
+      body: { eventId, kind: 'co_scanner_added', scannerUserId: data.user_id },
+    });
+    return {
+      ...data,
+      notificationWarning: notificationError?.message || '',
+    };
+  }
+
+  requireProductionBackend();
+  const currentUser = getLocalCurrentUser();
+  const event = getAllEvents().find((item) => item.id === eventId);
+  if (!event || event.host_user_id !== currentUser?.id || event.status !== 'active') {
+    throw new Error('Only the event creator may manage co-scanners.');
+  }
+  const profile = getAllProfiles().find(
+    (item) => item.qr_pass_code?.trim().toUpperCase() === scannerCode?.trim().toUpperCase()
+  );
+  if (!profile) throw new Error('No account was found for that co-scanner code.');
+  if (profile.id === currentUser.id) throw new Error('The event creator is already the main scanner.');
+
+  const scanners = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_SCANNERS)) || [];
+  const existing = scanners.find((scanner) => scanner.event_id === eventId && scanner.user_id === profile.id);
+  if (existing) return existing;
+  const scanner = {
+    id: `scanner-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    event_id: eventId,
+    user_id: profile.id,
+    assigned_label: 'Co-scanner',
+    created_at: new Date().toISOString(),
+    full_name: profile.full_name,
+    email: profile.email,
+    school: profile.school,
+    qr_pass_code: profile.qr_pass_code,
+  };
+  scanners.unshift(scanner);
+  localStorage.setItem(STORAGE_KEYS.EVENT_SCANNERS, JSON.stringify(scanners));
+  broadcastEvent('EVENT_SCANNERS_UPDATED', { eventId });
+  return {
+    ...scanner,
+    notificationWarning: 'Email notifications require a connected Supabase backend.',
+  };
+};
+
+export const removeEventScanner = async (eventId, scannerUserId) => {
+  if (isLiveSupabase) {
+    const { data, error } = await supabase.rpc('remove_event_scanner', {
+      target_event_id: eventId,
+      target_scanner_user_id: scannerUserId,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  requireProductionBackend();
+  const currentUser = getLocalCurrentUser();
+  const event = getAllEvents().find((item) => item.id === eventId);
+  if (!event || event.host_user_id !== currentUser?.id) {
+    throw new Error('Only the event creator may manage co-scanners.');
+  }
+  const scanners = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_SCANNERS)) || [];
+  const remaining = scanners.filter((scanner) => !(scanner.event_id === eventId && scanner.user_id === scannerUserId));
+  localStorage.setItem(STORAGE_KEYS.EVENT_SCANNERS, JSON.stringify(remaining));
+  broadcastEvent('EVENT_SCANNERS_UPDATED', { eventId });
+  return remaining.length !== scanners.length;
 };
 
 export const getAllProfiles = () => {

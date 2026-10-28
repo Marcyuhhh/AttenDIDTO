@@ -19,6 +19,7 @@ const AuthScreen = lazy(() => import('./components/AuthScreen'));
 const EventConsole = lazy(() => import('./components/EventConsole'));
 const StartEventModal = lazy(() => import('./components/StartEventModal'));
 const ParticipantScannerModal = lazy(() => import('./components/ParticipantScannerModal'));
+const CoScannerModal = lazy(() => import('./components/CoScannerModal'));
 const PrintReportModal = lazy(() => import('./components/PrintReportModal'));
 const AttendanceHistory = lazy(() => import('./components/AttendanceHistory'));
 const ProfileView = lazy(() => import('./components/ProfileView'));
@@ -90,6 +91,7 @@ export default function App() {
   // Modals state
   const [isStartEventOpen, setIsStartEventOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isCoScannerOpen, setIsCoScannerOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [profileView, setProfileView] = useState('profile');
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -113,7 +115,6 @@ export default function App() {
           setEvents((previous) => {
             const combined = [...cloudEvents, ...previous];
             return [...new Map(combined.map((event) => [event.id, event])).values()]
-              .filter((event) => event.host_user_id === user.id)
               .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
           });
           setAttendanceRecords(attendance);
@@ -274,7 +275,6 @@ export default function App() {
             setEvents((previous) => {
               const combined = [...cloudEvents, ...previous];
               return [...new Map(combined.map((event) => [event.id, event])).values()]
-                .filter((event) => event.host_user_id === user.id)
                 .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
             });
             setAttendanceRecords(attendance);
@@ -440,9 +440,11 @@ export default function App() {
 
                 <EventConsole
                   event={selectedEvent}
+                  currentUser={currentUser}
                   attendanceRecords={attendanceRecords}
                   profiles={profiles}
                   onOpenScanner={() => setIsScannerOpen(true)}
+                  onOpenCoScanners={() => setIsCoScannerOpen(true)}
                   onOpenReport={() => setIsReportOpen(true)}
                 />
               </div>
@@ -583,6 +585,13 @@ export default function App() {
           profiles={profiles}
           onClose={() => setIsScannerOpen(false)}
           onAttendanceRecorded={handleScanRecorded}
+        />
+      )}
+
+      {isCoScannerOpen && selectedEvent && (
+        <CoScannerModal
+          event={selectedEvent}
+          onClose={() => setIsCoScannerOpen(false)}
         />
       )}
 
