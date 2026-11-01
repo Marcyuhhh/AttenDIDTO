@@ -93,7 +93,7 @@ function ParticipantScannerModal({ event, currentUser, profiles = [], onClose, o
           { facingMode: 'environment' },
           {
             fps: 10,
-            qrbox: { width: 250, height: 250 },
+            qrbox: { width: 320, height: 320 },
             aspectRatio: 1.0,
           },
           (decodedText) => {
@@ -127,7 +127,7 @@ function ParticipantScannerModal({ event, currentUser, profiles = [], onClose, o
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px' }}>
         
         {/* Scanner Modal Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-primary)', color: '#ffffff' }}>

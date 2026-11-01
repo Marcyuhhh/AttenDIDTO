@@ -1507,12 +1507,15 @@ button, input, select, textarea {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: #000000;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
 }
 
 .scanner-overlay-brackets {
   position: absolute;
-  inset: 20px;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  aspect-ratio: 1 / 1;
   border: 2px solid rgba(250, 204, 21, 0.5);
   border-radius: var(--radius-md);
   pointer-events: none;
@@ -1521,8 +1524,8 @@ button, input, select, textarea {
 
 .scanner-laser {
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: 10%;
+  right: 10%;
   height: 3px;
   background: #facc15;
   box-shadow: 0 0 12px #facc15;
