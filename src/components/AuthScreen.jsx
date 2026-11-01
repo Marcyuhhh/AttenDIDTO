@@ -417,14 +417,14 @@ export default function AuthScreen({ onAuthSuccess, onGoBack }) {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label" htmlFor="signup-course">Degree</label>
-                        <input id="signup-course" type="text" className="form-input" value={course} onChange={(e) => setCourse(e.target.value)} required />
+                        <label className="form-label" htmlFor="signup-course">Program / Degree</label>
+                        <input id="signup-course" type="text" className="form-input" placeholder="Ex. BSCpE, BSCE, BSIT, etc." value={course} onChange={(e) => setCourse(e.target.value)} required />
                       </div>
                     </div>
 
                     <div className="form-group">
                       <label className="form-label" htmlFor="signup-college">College</label>
-                      <input id="signup-college" type="text" className="form-input" value={department} onChange={(e) => setDepartment(e.target.value)} required />
+                      <input id="signup-college" type="text" className="form-input" placeholder="Ex. CEA, COM, CITC, etc." value={department} onChange={(e) => setDepartment(e.target.value)} required />
                     </div>
                   </div>
                 ) : (

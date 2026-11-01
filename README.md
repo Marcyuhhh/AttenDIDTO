@@ -97,7 +97,7 @@ The notification uses the Gmail API, so the app can remain hosted on its Vercel 
    - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from the OAuth client.
    - `GOOGLE_REFRESH_TOKEN` from OAuth Playground.
    - `GMAIL_SENDER_EMAIL` to the Gmail account that granted authorization.
-   - `ADMIN_EMAIL` to the notification recipient, currently `eurese.marc.ariel@gmail.com`.
+   - `ADMIN_EMAIL` to the notification recipient, currently `attendidto@gmail.com`.
    - `APP_ORIGIN` to the exact Vercel app origin, for example `https://your-app.vercel.app`.
 5. Deploy the updated Edge Function directly from the project directory using the Supabase CLI:
 

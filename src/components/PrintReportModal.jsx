@@ -6,6 +6,7 @@ const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year',
 
 function PrintReportModal({ event, attendanceRecords, currentUser, profiles = [], onClose }) {
   const [deptFilter, setDeptFilter] = useState('ALL');
+  const [courseFilter, setCourseFilter] = useState('ALL');
   const [yearFilter, setYearFilter] = useState('ALL');
 
   const allProfiles = useMemo(() => profiles.length ? profiles : getAllProfiles(), [profiles]);
@@ -33,14 +34,20 @@ function PrintReportModal({ event, attendanceRecords, currentUser, profiles = []
     [enrichedRecords]
   );
 
+  const courses = useMemo(
+    () => Array.from(new Set(enrichedRecords.map((record) => record.course).filter(Boolean))),
+    [enrichedRecords]
+  );
+
   const filteredRecords = useMemo(
     () =>
       enrichedRecords.filter((record) => {
         const matchesDept = deptFilter === 'ALL' || record.department === deptFilter;
+        const matchesCourse = courseFilter === 'ALL' || record.course === courseFilter;
         const matchesYear = yearFilter === 'ALL' || record.year_level === yearFilter;
-        return matchesDept && matchesYear;
+        return matchesDept && matchesCourse && matchesYear;
       }),
-    [deptFilter, enrichedRecords, yearFilter]
+    [courseFilter, deptFilter, enrichedRecords, yearFilter]
   );
 
   const targetCount = event.target_attendees || 100;
@@ -121,6 +128,18 @@ function PrintReportModal({ event, attendanceRecords, currentUser, profiles = []
             <option value="ALL">All Departments ({enrichedRecords.length})</option>
             {departments.map((d) => (
               <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="form-select"
+            style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
+          >
+            <option value="ALL">All Programs</option>
+            {courses.map((course) => (
+              <option key={course} value={course}>{course}</option>
             ))}
           </select>
 
