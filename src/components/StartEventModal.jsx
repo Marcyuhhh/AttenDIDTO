@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, CheckCircle2, CreditCard } from 'lucide-react';
+import { X, CheckCircle2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { getAvailableEventPackages, submitEventRequest } from '../supabaseClient';
@@ -22,7 +22,7 @@ export default function StartEventModal({ onClose, onEventCreated }) {
   });
 
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState('GCash');
+  const paymentMethod = 'GCash';
   const [packageSize, setPackageSize] = useState(1);
   const [existingPackages, setExistingPackages] = useState([]);
   const [selectedExistingPackageId, setSelectedExistingPackageId] = useState('');
@@ -48,7 +48,7 @@ export default function StartEventModal({ onClose, onEventCreated }) {
   };
 
   const handleProcessPayment = async () => {
-    if (!paymentReference.trim()) {
+    if (!selectedExistingPackageId && !paymentReference.trim()) {
       setErrorMessage('Enter the payment transfer reference to submit this event for review.');
       return;
     }
@@ -219,7 +219,7 @@ export default function StartEventModal({ onClose, onEventCreated }) {
         {/* STEP 2: Technopreneurship Payment Modal */}
         {step === 'payment' && (
           <div className="start-event-payment">
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            {!selectedExistingPackageId && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
                 <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
                   Technopreneurship Student Pricing
@@ -232,59 +232,36 @@ export default function StartEventModal({ onClose, onEventCreated }) {
                 </div>
               </div>
               <CheckCircle2 size={26} color="#16a34a" />
-            </div>
+            </div>}
 
             <div className="start-event-package-options">
-              <button type="button" className={packageSize === 1 && !selectedExistingPackageId ? 'selected' : ''} onClick={() => { setPackageSize(1); setSelectedExistingPackageId(''); }}>
-                <strong>₱300</strong><span>1 event</span>
-              </button>
-              <button type="button" className={packageSize === 2 && !selectedExistingPackageId ? 'selected' : ''} onClick={() => { setPackageSize(2); setSelectedExistingPackageId(''); }}>
-                <strong>₱500</strong><span>2 events</span>
-              </button>
+              {!selectedExistingPackageId && <>
+                <button type="button" className={packageSize === 1 ? 'selected' : ''} onClick={() => setPackageSize(1)}>
+                  <strong>₱300</strong><span>1 event</span>
+                </button>
+                <button type="button" className={packageSize === 2 ? 'selected' : ''} onClick={() => setPackageSize(2)}>
+                  <strong>₱500</strong><span>2 events</span>
+                </button>
+              </>}
               {existingPackages.map((item) => (
                 <button key={item.id} type="button" className={selectedExistingPackageId === item.id ? 'selected' : ''} onClick={() => { setSelectedExistingPackageId(item.id); setPackageSize(item.package_size); }}>
-                  <strong>Use package</strong><span>{item.package_size - item.events_used - item.events_pending} event credit remaining</span>
+                  <strong>{selectedExistingPackageId === item.id ? 'Using package credit' : 'Use package'}</strong>
+                  <span>{item.package_size - item.events_used - item.events_pending} event credit remaining</span>
                 </button>
               ))}
+              {selectedExistingPackageId && <button type="button" onClick={() => setSelectedExistingPackageId('')}>
+                <strong>Buy a new package</strong><span>Choose a new payment amount</span>
+              </button>}
             </div>
 
-            <div className="gcash-payment-card">
+            {!selectedExistingPackageId && <div className="gcash-payment-card">
               <QRCodeSVG value="GCash:09916710660" size={132} includeMargin />
               <div>
                 <strong>Send via GCash</strong>
                 <div>09916710660</div>
                 <small>Send the exact amount shown above. The QR identifies the GCash account; enter the amount manually in GCash.</small>
               </div>
-            </div>
-
-            {/* Payment Method Switcher */}
-            <label className="form-label">Select Payment Method</label>
-            <div className="start-event-payment-methods">
-              {['GCash', 'PayMaya'].map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  onClick={() => setPaymentMethod(method)}
-                  style={{
-                    padding: '0.75rem 0.5rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: paymentMethod === method ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                    background: paymentMethod === method ? 'var(--color-primary-light)' : '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    color: paymentMethod === method ? 'var(--color-primary)' : 'var(--color-text-main)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                  }}
-                >
-                  <CreditCard size={18} />
-                  <span>{method}</span>
-                </button>
-              ))}
-            </div>
+            </div>}
 
             {/* Payment reference submitted for manual review */}
             {!selectedExistingPackageId && <div className="form-group">
@@ -299,7 +276,11 @@ export default function StartEventModal({ onClose, onEventCreated }) {
               />
             </div>}
             {errorMessage && <div role="alert" style={{ color: '#b91c1c', fontSize: '0.82rem', marginBottom: '0.75rem' }}>{errorMessage}</div>}
-            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>Your event stays pending until an administrator verifies the payment reference.</div>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>
+              {selectedExistingPackageId
+                ? 'Your remaining package credit will be used. No new payment or reference number is required.'
+                : 'Your event stays pending until an administrator verifies the payment reference.'}
+            </div>
 
             <div className="start-event-payment-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setStep('details')}>
@@ -312,7 +293,7 @@ export default function StartEventModal({ onClose, onEventCreated }) {
                 disabled={isProcessing}
                 style={{ minWidth: '180px' }}
               >
-                {isProcessing ? 'Submitting...' : 'Submit for Review'}
+                {isProcessing ? 'Submitting...' : selectedExistingPackageId ? 'Use Package Credit' : 'Submit for Review'}
               </button>
             </div>
           </div>
