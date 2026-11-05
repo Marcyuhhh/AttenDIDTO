@@ -29,6 +29,7 @@ export const STORAGE_KEYS = {
   EVENTS: 'attendidto_events',
   ATTENDANCE: 'attendidto_attendance',
   EVENT_SCANNERS: 'attendidto_event_scanners',
+  EVENT_PAYMENT_PACKAGES: 'attendidto_event_payment_packages',
   PENDING_OTP: 'attendidto_pending_otp',
 };
 
@@ -105,7 +106,7 @@ const SEED_EVENTS = [
     payment_status: 'paid',
     payment_method: 'GCash',
     payment_reference: 'GCASH-REF-992147',
-    payment_amount: 49.00,
+    payment_amount: 300.00,
     created_at: new Date().toISOString(),
   }
 ];
@@ -300,24 +301,68 @@ export const subscribeToCloudChanges = (callback) => {
 export const submitEventRequest = async (eventData, paymentReference) => {
   if (!isLiveSupabase) {
     requireProductionBackend();
+    const packageSize = Number(eventData.package_size) || 1;
+    const packageAmount = packageSize === 2 ? 500 : 300;
+    const currentUser = getLocalCurrentUser();
+    const packages = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_PAYMENT_PACKAGES) || '[]');
+    let paymentPackage = eventData.existing_package_id
+      ? packages.find((item) => item.id === eventData.existing_package_id && item.status === 'paid' && item.events_used + item.events_pending < item.package_size)
+      : null;
+    if (!paymentPackage) {
+      if (!paymentReference?.trim()) throw new Error('Payment reference is required');
+      paymentPackage = {
+        id: `package-${Date.now()}`,
+        purchaser_id: currentUser?.id,
+        package_size: packageSize,
+        amount: packageAmount,
+        events_used: 0,
+        events_pending: 0,
+        status: 'pending',
+        payment_method: eventData.payment_method || 'GCash',
+        payment_reference: paymentReference.trim(),
+      };
+      packages.push(paymentPackage);
+    }
+    paymentPackage.events_pending += 1;
+    localStorage.setItem(STORAGE_KEYS.EVENT_PAYMENT_PACKAGES, JSON.stringify(packages));
     const event = saveEvent({
       ...eventData,
       status: 'pending_payment',
       payment_status: 'pending',
-      payment_reference: paymentReference,
-      payment_amount: 49,
+      payment_reference: paymentReference || paymentPackage.payment_reference,
+      payment_amount: paymentPackage.amount,
+      payment_package_id: paymentPackage.id,
     });
     return { ...event, event_code: event.event_code || `EVT-${event.id.slice(-8).toUpperCase()}` };
   }
   const { data, error } = await supabase.rpc('create_event_request', {
     event_data: eventData,
-    submitted_payment_reference: paymentReference,
+    submitted_payment_reference: paymentReference || null,
+    selected_package_size: eventData.package_size || null,
+    existing_package_id: eventData.existing_package_id || null,
   });
   if (error) throw error;
   const { error: notificationError } = await supabase.functions.invoke('event-payment-notification', {
     body: { eventId: data.id, kind: 'submitted' },
   });
   return { ...data, notificationWarning: notificationError?.message };
+};
+
+export const getAvailableEventPackages = async () => {
+  if (!isLiveSupabase) {
+    requireProductionBackend();
+    const currentUser = getLocalCurrentUser();
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_PAYMENT_PACKAGES) || '[]')
+      .filter((item) => item.purchaser_id === currentUser?.id && item.status === 'paid' && item.events_used + item.events_pending < item.package_size);
+  }
+  const { data, error } = await supabase
+    .from('event_payment_packages')
+    .select('id,package_size,amount,events_used,events_pending,status,payment_method,payment_reference')
+    .eq('purchaser_id', (await supabase.auth.getUser()).data.user?.id)
+    .eq('status', 'paid')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).filter((item) => item.events_used + item.events_pending < item.package_size);
 };
 
 export const getPendingEventRequests = async () => {
@@ -346,6 +391,18 @@ export const reviewEventPayment = async (eventId, decision) => {
       status: approved ? 'active' : 'canceled',
       payment_status: approved ? 'paid' : 'canceled',
     };
+    const packages = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENT_PAYMENT_PACKAGES) || '[]');
+    const packageIndex = packages.findIndex((item) => item.id === events[index].payment_package_id);
+    if (packageIndex >= 0) {
+      packages[packageIndex].events_pending = Math.max(0, packages[packageIndex].events_pending - 1);
+      if (approved) {
+        packages[packageIndex].events_used += 1;
+        packages[packageIndex].status = 'paid';
+      } else {
+        packages[packageIndex].status = packages[packageIndex].events_used > 0 ? 'paid' : 'canceled';
+      }
+      localStorage.setItem(STORAGE_KEYS.EVENT_PAYMENT_PACKAGES, JSON.stringify(packages));
+    }
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
     broadcastEvent('EVENT_REVIEWED', events[index]);
     return events[index];

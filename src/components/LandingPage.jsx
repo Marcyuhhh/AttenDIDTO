@@ -197,7 +197,7 @@ export default function LandingPage({ onGoToAuth }) {
                 color: '#0891b2',
                 bg: '#ecfeff',
                 title: 'GCash & Maya Checkout',
-                desc: 'Student-friendly ₱49 event fee with realistic Philippine payment flow. Perfect for Technopreneurship defense.',
+                desc: 'GCash event packages: ₱300 for 1 event or ₱500 for 2 events.',
               },
             ].map((feature, idx) => (
               <div key={idx} className="landing-feature-card">

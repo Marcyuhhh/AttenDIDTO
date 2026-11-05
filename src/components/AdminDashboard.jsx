@@ -175,7 +175,7 @@ export default function AdminDashboard({ currentUser, onLogOut, logoutError }) {
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem', padding: '0.8rem', background: '#f8fafc', borderRadius: '4px', fontSize: '0.86rem' }}>
                       <span>Payment reference: <strong>{event.payment_reference}</strong></span>
                       <span>Submitted: {new Date(event.created_at).toLocaleString()}</span>
-                      <span>Fee: <strong>₱49.00</strong></span>
+                      <span>Package: <strong>{event.payment_amount >= 500 ? '₱500 · 2 events' : '₱300 · 1 event'}</strong></span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '1rem' }}>
                       <button className="btn btn-secondary" onClick={() => decide(event.id, 'cancel')} disabled={busyEventId === event.id}>

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, CheckCircle2, CreditCard } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
-import { submitEventRequest } from '../supabaseClient';
+import { getAvailableEventPackages, submitEventRequest } from '../supabaseClient';
 import { sound } from '../audioEffects';
 
 export default function StartEventModal({ onClose, onEventCreated }) {
@@ -22,11 +23,20 @@ export default function StartEventModal({ onClose, onEventCreated }) {
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState('GCash');
+  const [packageSize, setPackageSize] = useState(1);
+  const [existingPackages, setExistingPackages] = useState([]);
+  const [selectedExistingPackageId, setSelectedExistingPackageId] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [notificationWarning, setNotificationWarning] = useState('');
   const [createdEvent, setCreatedEvent] = useState(null);
+
+  useEffect(() => {
+    getAvailableEventPackages()
+      .then(setExistingPackages)
+      .catch(() => setExistingPackages([]));
+  }, []);
 
   const handleDetailsSubmit = (e) => {
     e.preventDefault();
@@ -49,7 +59,9 @@ export default function StartEventModal({ onClose, onEventCreated }) {
         ...formData,
         target_attendees: Number(formData.target_attendees) || 100,
         payment_method: paymentMethod,
-      }, paymentReference.trim());
+        package_size: packageSize,
+        existing_package_id: selectedExistingPackageId || null,
+      }, selectedExistingPackageId ? '' : paymentReference.trim());
 
       setCreatedEvent(newEvent);
       setNotificationWarning(newEvent.notificationWarning || '');
@@ -213,13 +225,36 @@ export default function StartEventModal({ onClose, onEventCreated }) {
                   Technopreneurship Student Pricing
                 </div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>
-                  Event Access Fee: ₱49.00
+                  Event Access Fee: ₱{packageSize === 2 ? '500.00' : '300.00'}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#166534' }}>
                   Scanning is enabled after an administrator confirms your payment
                 </div>
               </div>
               <CheckCircle2 size={26} color="#16a34a" />
+            </div>
+
+            <div className="start-event-package-options">
+              <button type="button" className={packageSize === 1 && !selectedExistingPackageId ? 'selected' : ''} onClick={() => { setPackageSize(1); setSelectedExistingPackageId(''); }}>
+                <strong>₱300</strong><span>1 event</span>
+              </button>
+              <button type="button" className={packageSize === 2 && !selectedExistingPackageId ? 'selected' : ''} onClick={() => { setPackageSize(2); setSelectedExistingPackageId(''); }}>
+                <strong>₱500</strong><span>2 events</span>
+              </button>
+              {existingPackages.map((item) => (
+                <button key={item.id} type="button" className={selectedExistingPackageId === item.id ? 'selected' : ''} onClick={() => { setSelectedExistingPackageId(item.id); setPackageSize(item.package_size); }}>
+                  <strong>Use package</strong><span>{item.package_size - item.events_used - item.events_pending} event credit remaining</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="gcash-payment-card">
+              <QRCodeSVG value="GCash:09916710660" size={132} includeMargin />
+              <div>
+                <strong>Send via GCash</strong>
+                <div>09916710660</div>
+                <small>Send the exact amount shown above. The QR identifies the GCash account; enter the amount manually in GCash.</small>
+              </div>
             </div>
 
             {/* Payment Method Switcher */}
@@ -252,7 +287,7 @@ export default function StartEventModal({ onClose, onEventCreated }) {
             </div>
 
             {/* Payment reference submitted for manual review */}
-            <div className="form-group">
+            {!selectedExistingPackageId && <div className="form-group">
               <label className="form-label">Payment Transfer Reference</label>
               <input
                 type="text"
@@ -262,7 +297,7 @@ export default function StartEventModal({ onClose, onEventCreated }) {
                 maxLength={120}
                 required
               />
-            </div>
+            </div>}
             {errorMessage && <div role="alert" style={{ color: '#b91c1c', fontSize: '0.82rem', marginBottom: '0.75rem' }}>{errorMessage}</div>}
             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>Your event stays pending until an administrator verifies the payment reference.</div>
 

@@ -40,11 +40,30 @@ CREATE TABLE IF NOT EXISTS public.events (
   payment_status VARCHAR(20) DEFAULT 'paid' CHECK (payment_status IN ('unpaid', 'paid', 'exempted')),
   payment_method VARCHAR(30) DEFAULT 'GCash',
   payment_reference TEXT,
-  payment_amount NUMERIC(10, 2) DEFAULT 49.00,
+  payment_amount NUMERIC(10, 2) DEFAULT 300.00,
+  payment_package_id UUID,
   
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS public.event_payment_packages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  purchaser_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  package_size INT NOT NULL CHECK (package_size IN (1, 2)),
+  amount NUMERIC(10, 2) NOT NULL CHECK (amount IN (300.00, 500.00)),
+  events_used INT NOT NULL DEFAULT 0 CHECK (events_used BETWEEN 0 AND package_size),
+  events_pending INT NOT NULL DEFAULT 0 CHECK (events_pending BETWEEN 0 AND package_size),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'canceled')),
+  payment_method VARCHAR(30) NOT NULL DEFAULT 'GCash',
+  payment_reference TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.events
+  ADD CONSTRAINT events_payment_package_id_fkey
+  FOREIGN KEY (payment_package_id) REFERENCES public.event_payment_packages(id);
 
 -- 3. EVENT CO-SCANNERS (Allows multiple devices / co-organizers to scan for the same event)
 CREATE TABLE IF NOT EXISTS public.event_scanners (
